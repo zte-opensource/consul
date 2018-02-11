@@ -10,6 +10,8 @@ import (
 	"github.com/hashicorp/serf/serf"
 )
 
+// called by
+// agent/consul/client.go/NewClientLogger
 // setupSerf is used to setup and initialize a Serf
 func (c *Client) setupSerf(conf *serf.Config, ch chan serf.Event, path string) (*serf.Serf, error) {
 	conf.Init()
@@ -47,9 +49,12 @@ func (c *Client) setupSerf(conf *serf.Config, ch chan serf.Event, path string) (
 	return serf.Create(conf)
 }
 
+// called by
+// agent/consul/client.go/NewClientLogger
 // lanEventHandler is used to handle events from the lan Serf cluster
 func (c *Client) lanEventHandler() {
 	var numQueuedEvents int
+
 	for {
 		numQueuedEvents = len(c.eventCh)
 		if numQueuedEvents > serfEventBacklogWarning {
@@ -77,6 +82,8 @@ func (c *Client) lanEventHandler() {
 	}
 }
 
+// called by
+// agent/consul/client_serf.go/lanEventHandler
 // nodeJoin is used to handle join events on the serf cluster
 func (c *Client) nodeJoin(me serf.MemberEvent) {
 	for _, m := range me.Members {
@@ -84,17 +91,22 @@ func (c *Client) nodeJoin(me serf.MemberEvent) {
 		if !ok {
 			continue
 		}
+
 		if parts.Datacenter != c.config.Datacenter {
 			c.logger.Printf("[WARN] consul: server %s for datacenter %s has joined wrong cluster",
 				m.Name, parts.Datacenter)
 			continue
 		}
+
+
 		c.logger.Printf("[INFO] consul: adding server %s", parts)
+
+        // c.routers is type of *router.Manager
 		c.routers.AddServer(parts)
 
 		// Trigger the callback
 		if c.config.ServerUp != nil {
-			c.config.ServerUp()
+			c.config.ServerUp() // a.sync.SyncFull.Trigger
 		}
 	}
 }
@@ -106,11 +118,16 @@ func (c *Client) nodeFail(me serf.MemberEvent) {
 		if !ok {
 			continue
 		}
+
 		c.logger.Printf("[INFO] consul: removing server %s", parts)
+
+		// c.routers is type of *router.Manager
 		c.routers.RemoveServer(parts)
 	}
 }
 
+// called by
+// agent/consul/client_serf.go/lanEventHandler
 // localEvent is called when we receive an event on the local Serf
 func (c *Client) localEvent(event serf.UserEvent) {
 	// Handle only consul events
@@ -124,7 +141,7 @@ func (c *Client) localEvent(event serf.UserEvent) {
 
 		// Trigger the callback
 		if c.config.ServerUp != nil {
-			c.config.ServerUp()
+			c.config.ServerUp() // a.sync.SyncFull.Trigger
 		}
 	case isUserEvent(name):
 		event.Name = rawUserEventName(name)
@@ -132,7 +149,7 @@ func (c *Client) localEvent(event serf.UserEvent) {
 
 		// Trigger the callback
 		if c.config.UserEventHandler != nil {
-			c.config.UserEventHandler(event)
+			c.config.UserEventHandler(event) // agent/user_event.go/handleEvents will receive and handle it
 		}
 	default:
 		if !c.handleEnterpriseUserEvents(event) {

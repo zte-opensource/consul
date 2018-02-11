@@ -140,6 +140,7 @@ func (c *CheckMonitor) check() {
 	// Start the check
 	if err := cmd.Start(); err != nil {
 		c.Logger.Printf("[ERR] agent: Check %q failed to invoke: %s", c.CheckID, err)
+
 		c.Notify.UpdateCheck(c.CheckID, api.HealthCritical, err.Error())
 		return
 	}
@@ -154,6 +155,7 @@ func (c *CheckMonitor) check() {
 	if c.Timeout > 0 {
 		timeout = c.Timeout
 	}
+
 	select {
 	case <-time.After(timeout):
 		if err := exec.KillCommandSubtree(cmd); err != nil {
@@ -167,6 +169,7 @@ func (c *CheckMonitor) check() {
 		if len(outputStr) > 0 {
 			msg += "\n\n" + outputStr
 		}
+
 		c.Notify.UpdateCheck(c.CheckID, api.HealthCritical, msg)
 
 		// Now wait for the process to exit so we never start another
@@ -182,6 +185,7 @@ func (c *CheckMonitor) check() {
 	outputStr := truncateAndLogOutput()
 	if err == nil {
 		c.Logger.Printf("[DEBUG] agent: Check %q is passing", c.CheckID)
+
 		c.Notify.UpdateCheck(c.CheckID, api.HealthPassing, outputStr)
 		return
 	}
@@ -224,6 +228,8 @@ type CheckTTL struct {
 	stopLock sync.Mutex
 }
 
+// called by
+// agent/agent.go/AddCheck
 // Start is used to start a check ttl, runs until Stop()
 func (c *CheckTTL) Start() {
 	c.stopLock.Lock()

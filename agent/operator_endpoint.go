@@ -279,6 +279,7 @@ func (s *HTTPServer) OperatorServerHealth(resp http.ResponseWriter, req *http.Re
 		Healthy:          reply.Healthy,
 		FailureTolerance: reply.FailureTolerance,
 	}
+
 	for _, server := range reply.Servers {
 		out.Servers = append(out.Servers, api.ServerHealth{
 			ID:          server.ID,

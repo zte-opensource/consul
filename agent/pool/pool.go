@@ -18,12 +18,16 @@ import (
 
 const defaultDialTimeout = 10 * time.Second
 
+// created by
+// agent/pool/pool.go/getNewConn
 // muxSession is used to provide an interface for a stream multiplexer.
 type muxSession interface {
 	Open() (net.Conn, error)
 	Close() error
 }
 
+// created by
+// agent/pool/pool.go/(c *Conn) getClient
 // streamClient is used to wrap a stream with an RPC client
 type StreamClient struct {
 	stream net.Conn
@@ -55,11 +59,13 @@ func (c *Conn) Close() error {
 	return c.session.Close()
 }
 
+// called by
+// agent/pool/pool.go/(p *ConnPool) getClient
 // getClient is used to get a cached or new client
 func (c *Conn) getClient() (*StreamClient, error) {
 	// Check for cached client
 	c.clientLock.Lock()
-	front := c.clients.Front()
+	front := c.clients.Front() // pushed by agent/pool/pool.go/returnClient
 	if front != nil {
 		c.clients.Remove(front)
 	}
@@ -85,10 +91,13 @@ func (c *Conn) getClient() (*StreamClient, error) {
 	return sc, nil
 }
 
+// called by
+// agent/pool/pool.go/RPC
 // returnStream is used when done with a stream
 // to allow re-use by a future RPC
 func (c *Conn) returnClient(client *StreamClient) {
 	didSave := false
+
 	c.clientLock.Lock()
 	if c.clients.Len() < c.pool.MaxStreams && atomic.LoadInt32(&c.shouldClose) == 0 {
 		c.clients.PushFront(client)
@@ -101,6 +110,7 @@ func (c *Conn) returnClient(client *StreamClient) {
 		}
 	}
 	c.clientLock.Unlock()
+
 	if !didSave {
 		client.Close()
 	}
@@ -190,6 +200,8 @@ func (p *ConnPool) Shutdown() error {
 	return nil
 }
 
+// called by
+// agent/pool/pool.go/getClient
 // acquire will return a pooled connection, if available. Otherwise it will
 // wait for an existing connection attempt to finish, if one if in progress,
 // and will return that one if it succeeds. If all else fails, it will return a
@@ -201,7 +213,7 @@ func (p *ConnPool) acquire(dc string, addr net.Addr, version int, useTLS bool) (
 	// here since it should the the vastly more common case than the rest
 	// of the code here.
 	p.Lock()
-	c := p.pool[addrStr]
+	c := p.pool[addrStr] // type of *Conn
 	if c != nil {
 		c.markForUse()
 		p.Unlock()
@@ -223,7 +235,7 @@ func (p *ConnPool) acquire(dc string, addr net.Addr, version int, useTLS bool) (
 	// If we are the lead thread, make the new connection and then wake
 	// everybody else up to see if we got it.
 	if isLeadThread {
-		c, err := p.getNewConn(dc, addr, version, useTLS)
+		c, err := p.getNewConn(dc, addr, version, useTLS) // type of *Conn
 		p.Lock()
 		delete(p.limiter, addrStr)
 		close(wait)
@@ -232,7 +244,7 @@ func (p *ConnPool) acquire(dc string, addr net.Addr, version int, useTLS bool) (
 			return nil, err
 		}
 
-		p.pool[addrStr] = c
+		p.pool[addrStr] = c // so no need to call net.Dial to create socket connection
 		p.Unlock()
 		return c, nil
 	}
@@ -266,6 +278,9 @@ type HalfCloser interface {
 	CloseWrite() error
 }
 
+// called by
+// agent/consul/snapshot_endpoint.go/SnapshotRPC
+// agent/pool/pool.go/getNewConn
 // DialTimeout is used to establish a raw connection to the given server, with a
 // given connection timeout.
 func (p *ConnPool) DialTimeout(dc string, addr net.Addr, timeout time.Duration, useTLS bool) (net.Conn, HalfCloser, error) {
@@ -306,6 +321,8 @@ func (p *ConnPool) DialTimeout(dc string, addr net.Addr, timeout time.Duration, 
 	return conn, hc, nil
 }
 
+// called by
+// agent/pool/pool.go/acquire
 // getNewConn is used to return a new connection
 func (p *ConnPool) getNewConn(dc string, addr net.Addr, version int, useTLS bool) (*Conn, error) {
 	// Get a new, raw connection.
@@ -374,18 +391,20 @@ func (p *ConnPool) releaseConn(conn *Conn) {
 	}
 }
 
+// called by
+// agent/pool/pool.go/RPC
 // getClient is used to get a usable client for an address and protocol version
 func (p *ConnPool) getClient(dc string, addr net.Addr, version int, useTLS bool) (*Conn, *StreamClient, error) {
 	retries := 0
 START:
 	// Try to get a conn first
-	conn, err := p.acquire(dc, addr, version, useTLS)
+	conn, err := p.acquire(dc, addr, version, useTLS) // type of *Conn
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to get conn: %v", err)
 	}
 
 	// Get a client
-	client, err := conn.getClient()
+	client, err := conn.getClient() // type of *StreamClient
 	if err != nil {
 		p.clearConn(conn)
 		p.releaseConn(conn)
@@ -400,6 +419,13 @@ START:
 	return conn, client, nil
 }
 
+// called by
+// agent/consul/client.go/RPC
+// agent/consul/rpc.go/forward
+// agent/consul/forwardDC
+// agent/consul/server_serf.go/maybeBootstrap
+// agent/consul/stats_fetcher.go/fetch
+// agent/pool/pool.go/Ping
 // RPC is used to make an RPC call to a remote host
 func (p *ConnPool) RPC(dc string, addr net.Addr, version int, method string, useTLS bool, args interface{}, reply interface{}) error {
 	p.once.Do(p.init)

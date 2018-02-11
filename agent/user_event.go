@@ -71,6 +71,8 @@ func validateUserEventParams(params *UserEvent) error {
 	return nil
 }
 
+// called by
+// agent/event_endpoint.go/EventFire
 // UserEvent is used to fire an event via the Serf layer on the LAN
 func (a *Agent) UserEvent(dc, token string, params *UserEvent) error {
 	// Validate the params
@@ -105,11 +107,16 @@ func (a *Agent) UserEvent(dc, token string, params *UserEvent) error {
 	return a.RPC("Internal.EventFire", &args, &out)
 }
 
+// called by
+// agent/agent.go/Start
 // handleEvents is used to process incoming user events
 func (a *Agent) handleEvents() {
 	for {
 		select {
 		case e := <-a.eventCh:
+            // written by
+            // agent/consul/client_serf.go/localEvent
+            // agent/consul/server_serf.go/localEvent
 			// Decode the event
 			msg := new(UserEvent)
 			if err := decodeMsgPack(e.Payload, msg); err != nil {
@@ -132,6 +139,8 @@ func (a *Agent) handleEvents() {
 	}
 }
 
+// called by
+// agent/user_event.go/handleEvents
 // shouldProcessUserEvent checks if an event makes it through our filters
 func (a *Agent) shouldProcessUserEvent(msg *UserEvent) bool {
 	// Check the version
@@ -204,6 +213,8 @@ func (a *Agent) shouldProcessUserEvent(msg *UserEvent) bool {
 	return true
 }
 
+// called by
+// agent/user_event.go/handleEvents
 // ingestUserEvent is used to process an event that passes filtering
 func (a *Agent) ingestUserEvent(msg *UserEvent) {
 	// Special handling for internal events
@@ -230,6 +241,8 @@ func (a *Agent) ingestUserEvent(msg *UserEvent) {
 	a.eventIndex = (idx + 1) % len(a.eventBuf)
 }
 
+// called by
+// agent/event_endpoint.go/EventList
 // UserEvents is used to return a slice of the most recent
 // user events.
 func (a *Agent) UserEvents() []*UserEvent {
@@ -254,6 +267,7 @@ func (a *Agent) UserEvents() []*UserEvent {
 	return out
 }
 
+// not used
 // LastUserEvent is used to return the last user event.
 // This will return nil if there is no recent event.
 func (a *Agent) LastUserEvent() *UserEvent {

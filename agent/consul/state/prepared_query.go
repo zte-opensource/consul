@@ -281,6 +281,9 @@ func (s *Store) preparedQueryDeleteTxn(tx *memdb.Txn, idx uint64, queryID string
 	return nil
 }
 
+// called by
+// agent/consul/prepared_query_endpoint.go/Apply
+// agent/consul/prepared_query_endpoint.go/Get
 // PreparedQueryGet returns the given prepared query by ID.
 func (s *Store) PreparedQueryGet(ws memdb.WatchSet, queryID string) (uint64, *structs.PreparedQuery, error) {
 	tx := s.db.Txn(false)

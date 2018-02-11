@@ -115,6 +115,8 @@ func (p *PreparedQueryPolicy) GoString() string {
 	return fmt.Sprintf("%#v", *p)
 }
 
+// called by
+// acl/policy.go/Parse
 // isPolicyValid makes sure the given string matches one of the valid policies.
 func isPolicyValid(policy string) bool {
 	switch policy {
@@ -155,6 +157,10 @@ func isSentinelValid(sentinel sentinel.Evaluator, basicPolicy string, sp Sentine
 	return sentinel.Compile(sp.Code)
 }
 
+// called by
+// acl/cache.go/getPolicy
+// agent/consul/acl.go/lookupACL
+// agent/consul/acl_endpoints.go/aclApplyInternal
 // Parse is used to parse the specified ACL rules into an
 // intermediary set of policies, before being compiled into
 // the ACL

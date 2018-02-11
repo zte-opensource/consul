@@ -9,6 +9,9 @@ import (
 	"github.com/hashicorp/serf/serf"
 )
 
+// created by
+// agent/consul/client_serf.go/setupSerf
+// agent/consul/server_serf.go/setupSerf
 // lanMergeDelegate is used to handle a cluster merge on the LAN gossip
 // ring. We check that the peers are in the same datacenter and abort the
 // merge if there is a mis-match.
@@ -25,6 +28,7 @@ var uniqueIDMinVersion = version.Must(version.NewVersion("0.8.5"))
 
 func (md *lanMergeDelegate) NotifyMerge(members []*serf.Member) error {
 	nodeMap := make(map[types.NodeID]string)
+
 	for _, m := range members {
 		if rawID, ok := m.Tags["id"]; ok && rawID != "" {
 			nodeID := types.NodeID(rawID)

@@ -302,6 +302,11 @@ func (s *Store) aclSetTxn(tx *memdb.Txn, idx uint64, acl *structs.ACL) error {
 	return nil
 }
 
+// called by
+// agent/consul/acl.go/aclLocalFault
+// agent/consul/acl_endpoint.go/Apply
+// agent/consul/acl_endpoint.go/Get
+// agent/consul/leader.go/initializeACL
 // ACLGet is used to look up an existing ACL by ID.
 func (s *Store) ACLGet(ws memdb.WatchSet, aclID string) (uint64, *structs.ACL, error) {
 	tx := s.db.Txn(false)

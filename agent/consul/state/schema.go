@@ -19,6 +19,8 @@ func registerSchema(fn schemaFn) {
 	schemas = append(schemas, fn)
 }
 
+// called by
+// agent/consul/state/state_store.go/NewStateStore
 // stateStoreSchema is used to return the combined schema for
 // the state store.
 func stateStoreSchema() *memdb.DBSchema {
@@ -33,11 +35,15 @@ func stateStoreSchema() *memdb.DBSchema {
 		if _, ok := db.Tables[schema.Name]; ok {
 			panic(fmt.Sprintf("duplicate table name: %s", schema.Name))
 		}
+
 		db.Tables[schema.Name] = schema
 	}
+
 	return db
 }
 
+// called by
+// agent/consul/state/schema.go/init
 // indexTableSchema returns a new table schema used for tracking various indexes
 // for the Raft log.
 func indexTableSchema() *memdb.TableSchema {

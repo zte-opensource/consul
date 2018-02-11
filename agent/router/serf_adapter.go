@@ -11,6 +11,8 @@ import (
 // routerFn selects one of the router operations to map to incoming Serf events.
 type routerFn func(types.AreaID, *metadata.Server) error
 
+// called by
+// agent/router/serf_adapter.go/HandleSerfEvents, for WAN event
 // handleMemberEvents attempts to apply the given Serf member event to the given
 // router function.
 func handleMemberEvent(logger *log.Logger, fn routerFn, areaID types.AreaID, e serf.Event) {
@@ -28,6 +30,8 @@ func handleMemberEvent(logger *log.Logger, fn routerFn, areaID types.AreaID, e s
 			continue
 		}
 
+		// fn = router.AddServer / router.RemoveServer / router.FailServer
+		// areaID == types.AreaWAN
 		if err := fn(areaID, parts); err != nil {
 			logger.Printf("[ERR] consul: Failed to process %s event for server %q in area %q: %v",
 				me.Type.String(), m.Name, areaID, err)
@@ -39,6 +43,8 @@ func handleMemberEvent(logger *log.Logger, fn routerFn, areaID types.AreaID, e s
 	}
 }
 
+// called by
+// agent/consul/server.go/NewServerLogger, for WAN event
 // HandleSerfEvents is a long-running goroutine that pushes incoming events from
 // a Serf manager's channel into the given router. This will return when the
 // shutdown channel is closed.

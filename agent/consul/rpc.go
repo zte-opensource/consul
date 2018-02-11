@@ -45,6 +45,8 @@ const (
 	enqueueLimit = 30 * time.Second
 )
 
+// called by
+// agent/consul/server.go/NewServerLogger
 // listen is used to listen for incoming RPC connections
 func (s *Server) listen(listener net.Listener) {
 	for {
@@ -69,6 +71,8 @@ func logConn(conn net.Conn) string {
 	return memberlist.LogConn(conn)
 }
 
+// called by
+// agent/consul/rpc.go/listen
 // handleConn is used to determine if this is a Raft or
 // Consul type RPC connection and invoke the correct handler
 func (s *Server) handleConn(conn net.Conn, isTLS bool) {
@@ -92,13 +96,19 @@ func (s *Server) handleConn(conn net.Conn, isTLS bool) {
 
 	// Switch on the byte
 	switch typ {
+	// not used anymore
 	case pool.RPCConsul:
 		s.handleConsulConn(conn)
 
+	// written by
+	// agent/consul/raft_rpc.go/Dial
 	case pool.RPCRaft:
 		metrics.IncrCounter([]string{"rpc", "raft_handoff"}, 1)
 		s.raftLayer.Handoff(conn)
 
+	// written by
+	// agent/consul/raft_rpc.go/Dial
+	// agent/pool/pool.go/DialTimeout
 	case pool.RPCTLS:
 		if s.rpcTLS == nil {
 			s.logger.Printf("[WARN] consul.rpc: TLS connection attempted, server not configured for TLS %s", logConn(conn))
@@ -108,9 +118,11 @@ func (s *Server) handleConn(conn net.Conn, isTLS bool) {
 		conn = tls.Server(conn, s.rpcTLS)
 		s.handleConn(conn, true)
 
+	// written by agent/pool/pool.go/getNewConn
 	case pool.RPCMultiplexV2:
 		s.handleMultiplexV2(conn)
 
+	// written by agent/consul/snapshot_endpoint.go/SnapshotRPC
 	case pool.RPCSnapshot:
 		s.handleSnapshotConn(conn)
 
@@ -141,6 +153,8 @@ func (s *Server) handleMultiplexV2(conn net.Conn) {
 	}
 }
 
+// called by
+// agent/consul/rpc.go/handleMultiplexV2
 // handleConsulConn is used to service a single Consul RPC connection
 func (s *Server) handleConsulConn(conn net.Conn) {
 	defer conn.Close()
@@ -152,6 +166,7 @@ func (s *Server) handleConsulConn(conn net.Conn) {
 		default:
 		}
 
+		// all rpc endpoints were registered by agent/consul/server.go/setupRPC
 		if err := s.rpcServer.ServeRequest(rpcCodec); err != nil {
 			if err != io.EOF && !strings.Contains(err.Error(), "closed") {
 				s.logger.Printf("[ERR] consul.rpc: RPC error: %v %s", err, logConn(conn))
@@ -227,12 +242,15 @@ CHECK_LEADER:
 
 	// Handle the case of a known leader
 	rpcErr := structs.ErrNoLeader
+
 	if leader != nil {
+		// remote RPC
 		rpcErr = s.connPool.RPC(s.config.Datacenter, leader.Addr,
 			leader.Version, method, leader.UseTLS, args, reply)
 		if rpcErr != nil && canRetry(info, rpcErr) {
 			goto RETRY
 		}
+
 		return true, rpcErr
 	}
 
@@ -255,6 +273,9 @@ RETRY:
 	return true, rpcErr
 }
 
+// called by
+// agent/consul/rpc.go/forward
+// agent/consul/snapshot_endpoint.go/dispatchSnapshotRequest
 // getLeader returns if the current node is the leader, and if not then it
 // returns the leader which is potentially nil if the cluster has not yet
 // elected a leader.
@@ -277,6 +298,10 @@ func (s *Server) getLeader() (bool, *metadata.Server) {
 	return false, server
 }
 
+// called by
+// agent/consul/prepared_query_endpoint.go/ForwardDC
+// agent/consul/rpc.go/forward
+// agent/consul/rpc.go/globalRPC
 // forwardDC is used to forward an RPC call to a remote DC, or fail if no servers
 func (s *Server) forwardDC(method, dc string, args interface{}, reply interface{}) error {
 	manager, server, ok := s.router.FindRoute(dc)
@@ -287,6 +312,7 @@ func (s *Server) forwardDC(method, dc string, args interface{}, reply interface{
 
 	metrics.IncrCounterWithLabels([]string{"rpc", "cross-dc"}, 1,
 		[]metrics.Label{{Name: "datacenter", Value: dc}})
+
 	if err := s.connPool.RPC(dc, server.Addr, server.Version, method, server.UseTLS, args, reply); err != nil {
 		manager.NotifyFailedServer(server)
 		s.logger.Printf("[ERR] consul: RPC failed to server %s in DC %q: %v", server.Addr, dc, err)
@@ -296,6 +322,8 @@ func (s *Server) forwardDC(method, dc string, args interface{}, reply interface{
 	return nil
 }
 
+// called by
+// agent/consul/internal_endpoint.go/KeyringOperation
 // globalRPC is used to forward an RPC request to one server in each datacenter.
 // This will only error for RPC-related errors. Otherwise, application-level
 // errors can be sent in the response objects.
@@ -316,6 +344,7 @@ func (s *Server) globalRPC(method string, args interface{},
 				errorCh <- err
 				return
 			}
+
 			respCh <- rr
 		}(dc)
 	}

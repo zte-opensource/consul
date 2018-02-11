@@ -78,6 +78,7 @@ func kvsPreApply(srv *Server, rule acl.ACL, op api.KVOp, dirEnt *structs.DirEntr
 
 // Apply is used to apply a KVS update request to the data store.
 func (k *KVS) Apply(args *structs.KVSRequest, reply *bool) error {
+	// forward if we are not the raft leader
 	if done, err := k.srv.forward("KVS.Apply", args, args, reply); done {
 		return err
 	}
@@ -88,6 +89,7 @@ func (k *KVS) Apply(args *structs.KVSRequest, reply *bool) error {
 	if err != nil {
 		return err
 	}
+
 	ok, err := kvsPreApply(k.srv, acl, args.Op, &args.DirEnt)
 	if err != nil {
 		return err

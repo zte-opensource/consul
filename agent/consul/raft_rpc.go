@@ -36,6 +36,8 @@ type RaftLayer struct {
 	tlsFunc func(raft.ServerAddress) bool
 }
 
+// called by
+// agent/consul/server.go/setupRPC
 // NewRaftLayer is used to initialize a new RaftLayer which can
 // be used as a StreamLayer for Raft. If a tlsConfig is provided,
 // then the connection will use TLS.
@@ -51,6 +53,8 @@ func NewRaftLayer(src, addr net.Addr, tlsWrap tlsutil.Wrapper, tlsFunc func(raft
 	return layer
 }
 
+// called by
+// agent/consul/rpc.go/handleConn
 // Handoff is used to hand off a connection to the
 // RaftLayer. This allows it to be Accept()'ed
 func (l *RaftLayer) Handoff(c net.Conn) error {
@@ -62,6 +66,8 @@ func (l *RaftLayer) Handoff(c net.Conn) error {
 	}
 }
 
+// called by
+// vendor/hashicorp/raft/net_transpoint.go/listen
 // Accept is used to return connection which are
 // dialed to be used with the Raft layer
 func (l *RaftLayer) Accept() (net.Conn, error) {
@@ -90,6 +96,8 @@ func (l *RaftLayer) Addr() net.Addr {
 	return l.addr
 }
 
+// called by
+// vendor/hashicorp/raft/net_transportgo/getConn
 // Dial is used to create a new outgoing connection
 func (l *RaftLayer) Dial(address raft.ServerAddress, timeout time.Duration) (net.Conn, error) {
 	d := &net.Dialer{LocalAddr: l.src, Timeout: timeout}

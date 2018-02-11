@@ -47,6 +47,8 @@ type expireInterval struct {
 	timer *time.Timer
 }
 
+// called by
+// agent/consul/server.go/NewServerLogger
 // NewTombstoneGC is used to construct a new TombstoneGC given a TTL for
 // tombstones and a tracking granularity. Longer TTLs ensure correct behavior
 // for more time, but use more storage. A shorter granularity increases the

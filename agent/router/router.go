@@ -64,6 +64,8 @@ type managerInfo struct {
 	shutdownCh chan struct{}
 }
 
+// created by
+// agent/router/router.go/AddArea
 // areaInfo holds information about a given network area.
 type areaInfo struct {
 	// cluster is the Serf instance for this network area.
@@ -81,6 +83,8 @@ type areaInfo struct {
 	useTLS bool
 }
 
+// called by
+// agent/consul/server.go/NewServerLogger
 // NewRouter returns a new Router with the given configuration.
 func NewRouter(logger *log.Logger, localDatacenter string) *Router {
 	router := &Router{
@@ -90,12 +94,15 @@ func NewRouter(logger *log.Logger, localDatacenter string) *Router {
 		managers:        make(map[string][]*Manager),
 	}
 
+	// called by agent/router/router.go/FindRoute
 	// Hook the direct route lookup by default.
 	router.routeFn = router.findDirectRoute
 
 	return router
 }
 
+// called by
+// agent/consul/server.go/Shutdown
 // Shutdown removes all areas from the router, which stops all their respective
 // managers. No new areas can be added after the router is shut down.
 func (r *Router) Shutdown() {
@@ -114,6 +121,8 @@ func (r *Router) Shutdown() {
 	r.isShutdown = true
 }
 
+// called by
+// agent/consul/server.go/NewServerLogger
 // AddArea registers a new network area with the router.
 func (r *Router) AddArea(areaID types.AreaID, cluster RouterSerfCluster, pinger Pinger, useTLS bool) error {
 	r.Lock()
@@ -133,6 +142,7 @@ func (r *Router) AddArea(areaID types.AreaID, cluster RouterSerfCluster, pinger 
 		managers: make(map[string]*managerInfo),
 		useTLS:   useTLS,
 	}
+
 	r.areas[areaID] = area
 
 	// Do an initial populate of the manager so that we don't have to wait
@@ -185,6 +195,8 @@ func (r *Router) TLSEnabled(areaID types.AreaID) (bool, error) {
 	return area.useTLS, nil
 }
 
+// called by
+// agent/consul/server.go/Shutdown
 // RemoveArea removes an existing network area from the router.
 func (r *Router) RemoveArea(areaID types.AreaID) error {
 	r.Lock()
@@ -205,11 +217,16 @@ func (r *Router) RemoveArea(areaID types.AreaID) error {
 	return nil
 }
 
+// areaInfo.managers<datacenter, managerInfo>
+// Router.managers<datacenter, Manager>
+
+// called by
+// agent/router/router.go/AddArea, AddServer
 // addServer does the work of AddServer once the write lock is held.
 func (r *Router) addServer(area *areaInfo, s *metadata.Server) error {
 	// Make the manager on the fly if this is the first we've seen of it,
 	// and add it to the index.
-	info, ok := area.managers[s.Datacenter]
+	info, ok := area.managers[s.Datacenter] // every datacenter has a manager
 	if !ok {
 		shutdownCh := make(chan struct{})
 		manager := New(r.logger, shutdownCh, area.cluster, area.pinger)
@@ -217,10 +234,12 @@ func (r *Router) addServer(area *areaInfo, s *metadata.Server) error {
 			manager:    manager,
 			shutdownCh: shutdownCh,
 		}
+
 		area.managers[s.Datacenter] = info
 
 		managers := r.managers[s.Datacenter]
 		r.managers[s.Datacenter] = append(managers, manager)
+
 		go manager.Start()
 	}
 
@@ -231,9 +250,12 @@ func (r *Router) addServer(area *areaInfo, s *metadata.Server) error {
 	}
 
 	info.manager.AddServer(s)
+
 	return nil
 }
 
+// called by
+// agent/router/serf_adapter.go/HandleSerfEvents
 // AddServer should be called whenever a new server joins an area. This is
 // typically hooked into the Serf event handler area for this area.
 func (r *Router) AddServer(areaID types.AreaID, s *metadata.Server) error {
@@ -244,9 +266,12 @@ func (r *Router) AddServer(areaID types.AreaID, s *metadata.Server) error {
 	if !ok {
 		return fmt.Errorf("area ID %q does not exist", areaID)
 	}
+
 	return r.addServer(area, s)
 }
 
+// called by
+// agent/router/serf_adapter.go/HandleSerfEvents
 // RemoveServer should be called whenever a server is removed from an area. This
 // is typically hooked into the Serf event handler area for this area.
 func (r *Router) RemoveServer(areaID types.AreaID, s *metadata.Server) error {
@@ -265,12 +290,14 @@ func (r *Router) RemoveServer(areaID types.AreaID, s *metadata.Server) error {
 	if !ok {
 		return nil
 	}
+
 	info.manager.RemoveServer(s)
 
 	// If this manager is empty then remove it so we don't accumulate cruft
 	// and waste time during request routing.
 	if num := info.manager.NumServers(); num == 0 {
 		r.removeManagerFromIndex(s.Datacenter, info.manager)
+
 		close(info.shutdownCh)
 		delete(area.managers, s.Datacenter)
 	}
@@ -278,6 +305,8 @@ func (r *Router) RemoveServer(areaID types.AreaID, s *metadata.Server) error {
 	return nil
 }
 
+// called by
+// agent/router/serf_adapter.go/HandleSerfEvents
 // FailServer should be called whenever a server is failed in an area. This
 // is typically hooked into the Serf event handler area for this area. We will
 // immediately shift traffic away from this server, but it will remain in the
@@ -300,9 +329,13 @@ func (r *Router) FailServer(areaID types.AreaID, s *metadata.Server) error {
 	}
 
 	info.manager.NotifyFailedServer(s)
+
 	return nil
 }
 
+// called by
+// agent/consul/rpc.go/forwardDC
+// agent/consul/snapshot_endpoint.go/dispatchSnapshotRequest
 // FindRoute returns a healthy server with a route to the given datacenter. The
 // Boolean return parameter will indicate if a server was available. In some
 // cases this may return a best-effort unhealthy server that can be used for a
@@ -310,7 +343,8 @@ func (r *Router) FailServer(areaID types.AreaID, s *metadata.Server) error {
 // should feed that back to the manager associated with the server, which is
 // also returned, by calling NotifyFailedServer().
 func (r *Router) FindRoute(datacenter string) (*Manager, *metadata.Server, bool) {
-	return r.routeFn(datacenter)
+	// router.findDirectRoute
+    return r.routeFn(datacenter)
 }
 
 // findDirectRoute looks for a route to the given datacenter if it's directly
@@ -332,7 +366,7 @@ func (r *Router) findDirectRoute(datacenter string) (*Manager, *metadata.Server,
 			continue
 		}
 
-		if s := manager.FindServer(); s != nil {
+		if s := manager.FindServer(); s != nil { // return the first server
 			return manager, s, true
 		}
 	}
@@ -341,6 +375,9 @@ func (r *Router) findDirectRoute(datacenter string) (*Manager, *metadata.Server,
 	return nil, nil, false
 }
 
+// called by
+// agent/consul/rpc.go/globalRPC
+// agent/consul/server.go/Stats
 // GetDatacenters returns a list of datacenters known to the router, sorted by
 // name.
 func (r *Router) GetDatacenters() []string {
@@ -380,6 +417,9 @@ func (n *datacenterSorter) Less(i, j int) bool {
 	return n.Vec[i] < n.Vec[j]
 }
 
+// called by
+// agent/consul/catalog_endpoint.go/ListDatacenters
+// agent/consul/prepared_query_endpoint.go/GetOtherDatacentersByDistance
 // GetDatacentersByDistance returns a list of datacenters known to the router,
 // sorted by median RTT from this server to the servers in each datacenter. If
 // there are multiple areas that reach a given datacenter, this will use the
@@ -450,6 +490,8 @@ func (r *Router) GetDatacentersByDistance() ([]string, error) {
 	return names, nil
 }
 
+// called by
+// agent/consul/coordinate_endpoint.go/ListDatacenters
 // GetDatacenterMaps returns a structure with the raw network coordinates of
 // each known server, organized by datacenter and network area.
 func (r *Router) GetDatacenterMaps() ([]structs.DatacenterMap, error) {

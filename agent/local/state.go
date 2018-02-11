@@ -149,7 +149,7 @@ type State struct {
 	//
 	// It is set after both the state and the consul server/agent have
 	// been created.
-	Delegate rpc
+	Delegate rpc // Agent.delegate, i.e., either consul.server or consul.client
 
 	// TriggerSyncChanges is used to notify the state syncer that a
 	// partial sync should be performed.
@@ -212,6 +212,7 @@ func NewState(c Config, lg *log.Logger, tokens *token.Store) *State {
 		managedProxies:       make(map[string]*ManagedProxy),
 		managedProxyHandlers: make(map[chan<- struct{}]struct{}),
 	}
+
 	l.SetDiscardCheckOutput(c.DiscardCheckOutput)
 	return l
 }
@@ -260,6 +261,7 @@ func (l *State) AddService(service *structs.NodeService, token string) error {
 		Service: service,
 		Token:   token,
 	})
+
 	return nil
 }
 
@@ -279,6 +281,7 @@ func (l *State) RemoveService(id string) error {
 	// entry around until it is actually removed.
 	s.InSync = false
 	s.Deleted = true
+
 	l.TriggerSyncChanges()
 
 	return nil
@@ -294,6 +297,7 @@ func (l *State) Service(id string) *structs.NodeService {
 	if s == nil || s.Deleted {
 		return nil
 	}
+
 	return s.Service
 }
 
@@ -324,6 +328,7 @@ func (l *State) ServiceState(id string) *ServiceState {
 	if s == nil || s.Deleted {
 		return nil
 	}
+
 	return s.Clone()
 }
 
@@ -618,10 +623,12 @@ func (l *State) CriticalCheckStates() map[types.CheckID]*CheckState {
 	defer l.RUnlock()
 
 	m := make(map[types.CheckID]*CheckState)
+
 	for id, c := range l.checks {
 		if c.Deleted || !c.Critical() {
 			continue
 		}
+
 		m[id] = c.Clone()
 	}
 	return m

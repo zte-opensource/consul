@@ -328,6 +328,11 @@ type PolicyACL struct {
 	operatorRule string
 }
 
+// called by
+// acl/cache.go/GetACL
+// agent/acl.go/lookupACL
+// agent/acl.go/newACLManager
+// agent/consul/acl.go/useACLPolicy
 // New is used to construct a policy based ACL from a set of policies
 // and a parent policy to resolve missing cases.
 func New(parent ACL, policy *Policy, sentinel sentinel.Evaluator) (*PolicyACL, error) {

@@ -19,6 +19,10 @@ const (
 	maxBackoffTime = 180 * time.Second
 )
 
+// called by
+// agent/agent.go/reloadWatches
+// command/watch/watch.go/Run
+// Run is used to run a watch plan
 func (p *Plan) Run(address string) error {
 	return p.RunWithConfig(address, nil)
 }

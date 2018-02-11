@@ -12,6 +12,7 @@ import (
 func PromoteStableServers(autopilotConfig *Config, health OperatorHealthReply, servers []raft.Server) []raft.Server {
 	// Find any non-voters eligible for promotion.
 	now := time.Now()
+
 	var promotions []raft.Server
 	for _, server := range servers {
 		if !IsPotentialVoter(server.Suffrage) {

@@ -18,6 +18,8 @@ type FloodAddrFn func(*metadata.Server) (string, bool)
 // will return false if it doesn't have one.
 type FloodPortFn func(*metadata.Server) (int, bool)
 
+// called by
+// agent/consul/flood.go/Flood
 // FloodJoins attempts to make sure all Consul servers in the local Serf
 // instance are joined in the global Serf instance. It assumes names in the
 // local area are of the form <node> and those in the global area are of the
@@ -43,6 +45,7 @@ func FloodJoins(logger *log.Logger, addrFn FloodAddrFn, portFn FloodPortFn,
 		}
 
 		localName := strings.TrimSuffix(server.Name, suffix)
+
 		index[localName] = server
 	}
 
@@ -57,7 +60,7 @@ func FloodJoins(logger *log.Logger, addrFn FloodAddrFn, portFn FloodPortFn,
 			continue
 		}
 
-		if _, ok := index[server.Name]; ok {
+		if _, ok := index[server.Name]; ok { // already exists in global serf instance
 			continue
 		}
 
@@ -89,6 +92,8 @@ func FloodJoins(logger *log.Logger, addrFn FloodAddrFn, portFn FloodPortFn,
 				logger.Printf("[DEBUG] consul: Failed to parse IP %s", addr)
 			}
 		}
+
+		// not in the global serf cluster
 
 		// Do the join!
 		n, err := globalSerf.Join([]string{addr}, true)

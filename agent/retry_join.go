@@ -10,6 +10,8 @@ import (
 	discover "github.com/hashicorp/go-discover"
 )
 
+// called by
+// agent/agent.go/Start
 func (a *Agent) retryJoinLAN() {
 	r := &retryJoiner{
 		cluster:     "LAN",
@@ -24,6 +26,8 @@ func (a *Agent) retryJoinLAN() {
 	}
 }
 
+// called by
+// agent/agent.go/Start
 func (a *Agent) retryJoinWAN() {
 	r := &retryJoiner{
 		cluster:     "WAN",
@@ -63,6 +67,9 @@ type retryJoiner struct {
 	logger *log.Logger
 }
 
+// called by
+// agent/retry_join.go/retryJoinLAN
+// agent/retry_join.go/retryJoinWAN
 func (r *retryJoiner) retryJoin() error {
 	if len(r.addrs) == 0 {
 		return nil

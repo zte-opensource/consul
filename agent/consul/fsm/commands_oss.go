@@ -26,6 +26,7 @@ func init() {
 
 func (c *FSM) applyRegister(buf []byte, index uint64) interface{} {
 	defer metrics.MeasureSince([]string{"fsm", "register"}, time.Now())
+
 	var req structs.RegisterRequest
 	if err := structs.Decode(buf, &req); err != nil {
 		panic(fmt.Errorf("failed to decode request: %v", err))
@@ -36,6 +37,7 @@ func (c *FSM) applyRegister(buf []byte, index uint64) interface{} {
 		c.logger.Printf("[WARN] consul.fsm: EnsureRegistration failed: %v", err)
 		return err
 	}
+
 	return nil
 }
 

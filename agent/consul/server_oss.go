@@ -1,5 +1,6 @@
 package consul
 
+// all endpoints were setup by agent/consul/server.go/setupRPC
 func init() {
 	registerEndpoint(func(s *Server) interface{} { return &ACL{s} })
 	registerEndpoint(func(s *Server) interface{} { return &Catalog{s} })

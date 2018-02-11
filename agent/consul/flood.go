@@ -7,6 +7,8 @@ import (
 	"github.com/hashicorp/serf/serf"
 )
 
+// called by
+// agent/consul/server_serf.go/lanNodeJoin
 // FloodNotify lets all the waiting Flood goroutines know that some change may
 // have affected them.
 func (s *Server) FloodNotify() {
@@ -21,6 +23,8 @@ func (s *Server) FloodNotify() {
 	}
 }
 
+// called by
+// agent/consul/server.go/NewServerLogger
 // Flood is a long-running goroutine that floods servers from the LAN to the
 // given global Serf instance, such as the WAN. This will exit once either of
 // the Serf instances are shut down.
@@ -31,6 +35,7 @@ func (s *Server) Flood(addrFn router.FloodAddrFn, portFn router.FloodPortFn, glo
 	s.floodLock.Unlock()
 
 	ticker := time.NewTicker(s.config.SerfFloodInterval)
+
 	defer ticker.Stop()
 	defer func() {
 		s.floodLock.Lock()
@@ -56,11 +61,12 @@ func (s *Server) Flood(addrFn router.FloodAddrFn, portFn router.FloodPortFn, glo
 		case <-ticker.C:
 			goto FLOOD
 
-		case <-floodCh:
+		case <-floodCh: // notified by agent/consul/flood.go/FloodNotify
 			goto FLOOD
 		}
 
 	FLOOD:
+	    // join those local server members into serf wan cluster if not already in
 		router.FloodJoins(s.logger, addrFn, portFn, s.config.Datacenter, s.serfLAN, global)
 	}
 }

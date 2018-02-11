@@ -19,6 +19,8 @@ type Graveyard struct {
 	gc *TombstoneGC
 }
 
+// called by
+// agent/consul/state/state_store.go/NewStateStore
 // NewGraveyard returns a new graveyard.
 func NewGraveyard(gc *TombstoneGC) *Graveyard {
 	return &Graveyard{gc: gc}

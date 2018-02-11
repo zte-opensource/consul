@@ -138,6 +138,7 @@ func (s *HTTPServer) KVSPut(resp http.ResponseWriter, req *http.Request, args *s
 	if conflictingFlags(resp, req, "cas", "acquire", "release") {
 		return nil, nil
 	}
+
 	applyReq := structs.KVSRequest{
 		Datacenter: args.Datacenter,
 		Op:         api.KVSet,
@@ -197,6 +198,7 @@ func (s *HTTPServer) KVSPut(resp http.ResponseWriter, req *http.Request, args *s
 
 	// Make the RPC
 	var out bool
+	// local RPC
 	if err := s.agent.RPC("KVS.Apply", &applyReq, &out); err != nil {
 		return nil, err
 	}

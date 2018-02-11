@@ -26,6 +26,8 @@ type unboundCommand func(c *FSM, buf []byte, index uint64) interface{}
 // commands is a map from message type to unbound command.
 var commands map[structs.MessageType]unboundCommand
 
+// called by
+// agent/consul/fsm/commands_oss.go/init
 // registerCommand registers a new command with the FSM, which should be done
 // at package init() time.
 func registerCommand(msg structs.MessageType, fn unboundCommand) {
@@ -60,9 +62,11 @@ type FSM struct {
 	gc *state.TombstoneGC
 }
 
+// called by
+// agent/consul/server.go/setupRaft
 // New is used to construct a new FSM with a blank state.
 func New(gc *state.TombstoneGC, logOutput io.Writer) (*FSM, error) {
-	stateNew, err := state.NewStateStore(gc)
+	stateNew, err := state.NewStateStore(gc) // mem db
 	if err != nil {
 		return nil, err
 	}
@@ -78,6 +82,8 @@ func New(gc *state.TombstoneGC, logOutput io.Writer) (*FSM, error) {
 	// Build out the apply dispatch table based on the registered commands.
 	for msg, fn := range commands {
 		thisFn := fn
+
+		// called by fsm.go/(c *FSM) Apply
 		fsm.apply[msg] = func(buf []byte, index uint64) interface{} {
 			return thisFn(fsm, buf, index)
 		}
@@ -93,6 +99,8 @@ func (c *FSM) State() *state.Store {
 	return c.state
 }
 
+// called by
+// vendor/raft/fsm.go/runFSM
 func (c *FSM) Apply(log *raft.Log) interface{} {
 	buf := log.Data
 	msgType := structs.MessageType(buf[0])
@@ -117,6 +125,7 @@ func (c *FSM) Apply(log *raft.Log) interface{} {
 		c.logger.Printf("[WARN] consul.fsm: ignoring unknown message type (%d), upgrade to newer version", msgType)
 		return nil
 	}
+
 	panic(fmt.Errorf("failed to apply request: %#v", buf))
 }
 

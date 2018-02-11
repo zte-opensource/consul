@@ -7,6 +7,8 @@ import (
 	"github.com/hashicorp/raft"
 )
 
+// created by
+// agent/consul/oerator_raft_endpoint.go/RaftGetConfiguration
 // RaftServer has information about a server in the Raft configuration.
 type RaftServer struct {
 	// ID is the unique ID for the server. These are currently the same

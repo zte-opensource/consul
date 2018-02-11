@@ -12,6 +12,8 @@ import (
 // Factory is a function that returns a new instance of a CLI-sub command.
 type Factory func(cli.Ui) (cli.Command, error)
 
+// called by
+// command/commands_oss.go/init
 // Register adds a new CLI sub-command to the registry.
 func Register(name string, fn Factory) {
 	if registry == nil {
@@ -21,20 +23,25 @@ func Register(name string, fn Factory) {
 	if registry[name] != nil {
 		panic(fmt.Errorf("Command %q is already registered", name))
 	}
+
 	registry[name] = fn
 }
 
+// called by
+// main.go/realMain
 // Map returns a realized mapping of available CLI commands in a format that
 // the CLI class can consume. This should be called after all registration is
 // complete.
 func Map(ui cli.Ui) map[string]cli.CommandFactory {
 	m := make(map[string]cli.CommandFactory)
+
 	for name, fn := range registry {
 		thisFn := fn
 		m[name] = func() (cli.Command, error) {
 			return thisFn(ui)
 		}
 	}
+
 	return m
 }
 
@@ -47,8 +54,11 @@ var registry map[string]Factory
 // received.
 func MakeShutdownCh() <-chan struct{} {
 	resultCh := make(chan struct{})
+
 	signalCh := make(chan os.Signal, 4)
+
 	signal.Notify(signalCh, os.Interrupt, syscall.SIGTERM)
+
 	go func() {
 		for {
 			<-signalCh

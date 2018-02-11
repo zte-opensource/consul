@@ -80,6 +80,9 @@ func (a *ACL) Bootstrap(args *structs.DCSpecificRequest, reply *structs.ACL) err
 	return nil
 }
 
+// called by
+// agent/consul/acl_endpoint.go/Apply
+// agent/consul/acl_replication.go/updateLocalACLs
 // aclApplyInternal is used to apply an ACL request after it has been vetted that
 // this is a valid operation. It is used when users are updating ACLs, in which
 // case we check their token to make sure they have management privileges. It is
@@ -139,6 +142,10 @@ func aclApplyInternal(srv *Server, args *structs.ACLRequest, reply *string) erro
 	return nil
 }
 
+// called by
+// agent/acl_endpoint.go/ACLDestroy
+// agent/acl_endpoint.go/aclSet
+// agent/acl_endpoint.go/ACLClone
 // Apply is used to apply a modifying request to the data store. This should
 // only be used for operations that modify the data
 func (a *ACL) Apply(args *structs.ACLRequest, reply *string) error {

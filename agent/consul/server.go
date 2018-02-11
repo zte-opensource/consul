@@ -230,13 +230,33 @@ type Server struct {
 	EnterpriseServer
 }
 
+// called for test only
 func NewServer(config *Config) (*Server, error) {
 	return NewServerLogger(config, nil, new(token.Store))
 }
 
+// config.CheckACL
+// logger = log.New
+// state.NewTombstoneGC
+// s.statsFetcher = NewStatsFetcher
+// newACLCache
+// s.setupRPC
+// s.setupRaft
+// s.setupSerf
+// go s.lanEventHandler()
+// s.router.AddArea
+// go router.HandleSerfEvents
+// go s.Flood
+// go s.monitorLeadership()
+// go s.listen
+// go s.sessionStats()
+// s.initAutopilot
+
+// called by
+// agent/agent.go/Start
 // NewServer is used to construct a new Consul server from the
 // configuration, potentially returning an error
-func NewServerLogger(config *Config, logger *log.Logger, tokens *token.Store) (*Server, error) {
+func NewServerLogger(config *Config, logger *log.Logger, tokens *token.Store) (*Server, error) { // config is of type *consul.Config
 	// Check the protocol version.
 	if err := config.CheckProtocolVersion(); err != nil {
 		return nil, err
@@ -248,7 +268,7 @@ func NewServerLogger(config *Config, logger *log.Logger, tokens *token.Store) (*
 	}
 
 	// Sanity check the ACLs.
-	if err := config.CheckACL(); err != nil {
+	if err := config.CheckACL(); err != nil { // check default and down policy
 		return nil, err
 	}
 
@@ -351,6 +371,7 @@ func NewServerLogger(config *Config, logger *log.Logger, tokens *token.Store) (*
 		return nil, fmt.Errorf("Failed to start RPC layer: %v", err)
 	}
 
+	// nop, enterprise only
 	// Initialize any extra RPC listeners for segments.
 	segmentListeners, err := s.setupSegmentRPC()
 	if err != nil {
@@ -392,6 +413,7 @@ func NewServerLogger(config *Config, logger *log.Logger, tokens *token.Store) (*
 		}
 	}
 
+	// nop, enterprise only
 	// Initialize the LAN segments before the default LAN Serf so we have
 	// updated port information to publish there.
 	if err := s.setupSegments(config, serfBindPortWAN, segmentListeners); err != nil {
@@ -405,8 +427,11 @@ func NewServerLogger(config *Config, logger *log.Logger, tokens *token.Store) (*
 		s.Shutdown()
 		return nil, fmt.Errorf("Failed to start LAN Serf: %v", err)
 	}
+
+	// lan serf event
 	go s.lanEventHandler()
 
+	// nop, enterprise only
 	// Start the flooders after the LAN event handler is wired up.
 	s.floodSegments(config)
 
@@ -444,11 +469,11 @@ func NewServerLogger(config *Config, logger *log.Logger, tokens *token.Store) (*
 	}
 
 	// Start listening for RPC requests.
-	go s.listen(s.Listener)
+	go s.listen(s.Listener) // s.Listener was setup by Server::setupRPC
 
 	// Start listeners for any segments with separate RPC listeners.
 	for _, listener := range segmentListeners {
-		go s.listen(listener)
+		go s.listen(listener) // segmentListeners were setup by Server::setupSegmentRPC
 	}
 
 	// Start the metrics handlers.
@@ -460,6 +485,8 @@ func NewServerLogger(config *Config, logger *log.Logger, tokens *token.Store) (*
 	return s, nil
 }
 
+// called by
+// agent/consul/server.go/NewServerLogger
 // setupRaft is used to setup and initialize Raft
 func (s *Server) setupRaft() error {
 	// If we have an unclean exit then attempt to close the Raft store.
@@ -473,7 +500,7 @@ func (s *Server) setupRaft() error {
 
 	// Create the FSM.
 	var err error
-	s.fsm, err = fsm.New(s.tombstoneGC, s.config.LogOutput)
+	s.fsm, err = fsm.New(s.tombstoneGC, s.config.LogOutput) // register raft FSM apply handler
 	if err != nil {
 		return err
 	}
@@ -485,13 +512,14 @@ func (s *Server) setupRaft() error {
 
 	// Create a transport layer.
 	transConfig := &raft.NetworkTransportConfig{
-		Stream:                s.raftLayer,
+		Stream:                s.raftLayer, // setup by agent/consul/server.go/setupRPC
 		MaxPool:               3,
 		Timeout:               10 * time.Second,
 		ServerAddressProvider: serverAddressProvider,
 	}
 
 	trans := raft.NewNetworkTransportWithConfig(transConfig)
+
 	s.raftTransport = trans
 
 	// Make sure we set the LogOutput.
@@ -528,6 +556,7 @@ func (s *Server) setupRaft() error {
 		if err != nil {
 			return err
 		}
+
 		s.raftStore = store
 		stable = store
 
@@ -543,6 +572,7 @@ func (s *Server) setupRaft() error {
 		if err != nil {
 			return err
 		}
+
 		snap = snapshots
 
 		// For an existing cluster being upgraded to the new version of
@@ -603,6 +633,7 @@ func (s *Server) setupRaft() error {
 		if err != nil {
 			return err
 		}
+
 		if !hasState {
 			configuration := raft.Configuration{
 				Servers: []raft.Server{
@@ -612,6 +643,7 @@ func (s *Server) setupRaft() error {
 					},
 				},
 			}
+
 			if err := raft.BootstrapCluster(s.config.RaftConfig,
 				log, stable, snap, trans, configuration); err != nil {
 				return err
@@ -622,13 +654,14 @@ func (s *Server) setupRaft() error {
 	// Set up a channel for reliable leader notifications.
 	raftNotifyCh := make(chan bool, 1)
 	s.config.RaftConfig.NotifyCh = raftNotifyCh
-	s.raftNotifyCh = raftNotifyCh
+	s.raftNotifyCh = raftNotifyCh // agent/consul/leader.go/monitorLeadership
 
 	// Setup the Raft store.
 	s.raft, err = raft.NewRaft(s.config.RaftConfig, s.fsm, log, stable, snap, trans)
 	if err != nil {
 		return err
 	}
+	
 	return nil
 }
 
@@ -639,11 +672,15 @@ type factory func(s *Server) interface{}
 // endpoints is a list of registered RPC endpoint factories.
 var endpoints []factory
 
+// called by
+// agent/consul/server_oss.go/init
 // registerEndpoint registers a new RPC endpoint factory.
 func registerEndpoint(fn factory) {
 	endpoints = append(endpoints, fn)
 }
 
+// called by
+// agent/consul/server.go/NewServerLogger
 // setupRPC is used to setup the RPC listener
 func (s *Server) setupRPC(tlsWrap tlsutil.DCWrapper) error {
 	for _, fn := range endpoints {
@@ -654,10 +691,13 @@ func (s *Server) setupRPC(tlsWrap tlsutil.DCWrapper) error {
 	if err != nil {
 		return err
 	}
+
 	s.Listener = ln
+
 	if s.config.NotifyListen != nil {
 		s.config.NotifyListen()
 	}
+
 	// todo(fs): we should probably guard this
 	if s.config.RPCAdvertise == nil {
 		s.config.RPCAdvertise = ln.Addr().(*net.TCPAddr)
@@ -687,10 +727,14 @@ func (s *Server) setupRPC(tlsWrap tlsutil.DCWrapper) error {
 
 		return server.UseTLS
 	}
+
 	s.raftLayer = NewRaftLayer(s.config.RPCSrcAddr, s.config.RPCAdvertise, wrapper, tlsFunc)
+
 	return nil
 }
 
+// called by
+// agent/agent.go/ShutdownAgent
 // Shutdown is used to shutdown the server
 func (s *Server) Shutdown() error {
 	s.logger.Printf("[INFO] consul: shutting down server")
@@ -714,6 +758,7 @@ func (s *Server) Shutdown() error {
 			s.logger.Printf("[WARN] consul: error removing WAN area: %v", err)
 		}
 	}
+
 	s.router.Shutdown()
 
 	if s.raft != nil {
@@ -738,6 +783,8 @@ func (s *Server) Shutdown() error {
 	return nil
 }
 
+// called by
+// agent/agent.go/Leave
 // Leave is used to prepare for a graceful shutdown of the server
 func (s *Server) Leave() error {
 	s.logger.Printf("[INFO] consul: server starting leave")
@@ -794,7 +841,9 @@ func (s *Server) Leave() error {
 	// to shift onto another server if they perform a retry. We also wake up
 	// all queries in the RPC retry state.
 	s.logger.Printf("[INFO] consul: Waiting %s to drain RPC traffic", s.config.LeaveDrainTime)
+
 	close(s.leaveCh)
+
 	time.Sleep(s.config.LeaveDrainTime)
 
 	// If we were not leader, wait to be safely removed from the cluster. We
@@ -847,6 +896,8 @@ func (s *Server) Leave() error {
 	return nil
 }
 
+// called by
+// agent/consul/server.go/Leave
 // numPeers is used to check on the number of known peers, including potentially
 // the local node. We count only voters, since others can't actually become
 // leader, so aren't considered peers.
@@ -859,6 +910,8 @@ func (s *Server) numPeers() (int, error) {
 	return autopilot.NumPeers(future.Configuration()), nil
 }
 
+// called by
+// agent/agent.go/joinLAN
 // JoinLAN is used to have Consul join the inner-DC pool
 // The target address should be another node inside the DC
 // listening on the Serf LAN address
@@ -866,6 +919,8 @@ func (s *Server) JoinLAN(addrs []string) (int, error) {
 	return s.serfLAN.Join(addrs, true)
 }
 
+// called by
+// agent/agent.go/joinWAN
 // JoinWAN is used to have Consul join the cross-WAN Consul ring
 // The target address should be another node listening on the
 // Serf WAN address
@@ -978,18 +1033,24 @@ func (i *inmemCodec) Close() error {
 }
 
 // RPC is used to make a local RPC call
+// http endpoint calls this local RPC, then the RPC method either forward to
+// remote RPC if non-leader or handle it locally
 func (s *Server) RPC(method string, args interface{}, reply interface{}) error {
 	codec := &inmemCodec{
 		method: method,
 		args:   args,
 		reply:  reply,
 	}
+
 	if err := s.rpcServer.ServeRequest(codec); err != nil {
 		return err
 	}
+
 	return codec.err
 }
 
+// called by
+// agent/agent.go/SnapshotRPC
 // SnapshotRPC dispatches the given snapshot request, reading from the streaming
 // input and writing to the streaming output depending on the operation.
 func (s *Server) SnapshotRPC(args *structs.SnapshotRequest, in io.Reader, out io.Writer,
@@ -1001,6 +1062,7 @@ func (s *Server) SnapshotRPC(args *structs.SnapshotRequest, in io.Reader, out io
 	if err != nil {
 		return err
 	}
+
 	defer func() {
 		if err := snap.Close(); err != nil {
 			s.logger.Printf("[ERR] consul: Failed to close snapshot: %v", err)
@@ -1023,6 +1085,8 @@ func (s *Server) SnapshotRPC(args *structs.SnapshotRequest, in io.Reader, out io
 	return nil
 }
 
+// called by
+// agent/agent.go/registerEndpoint, which is for test only
 // RegisterEndpoint is used to substitute an endpoint for testing.
 func (s *Server) RegisterEndpoint(name string, handler interface{}) error {
 	s.logger.Printf("[WARN] consul: endpoint injected; this should only be used for testing")

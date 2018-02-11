@@ -86,6 +86,8 @@ func (s *Restore) KVS(entry *structs.DirEntry) error {
 	return nil
 }
 
+// called by
+// agent/consul/fsm/snapshot_oss.go/restoreTombstone
 // Tombstone is used when restoring from a snapshot. For general inserts, use
 // Graveyard.InsertTxn.
 func (s *Restore) Tombstone(stone *Tombstone) error {
@@ -191,6 +193,8 @@ func (s *Store) kvsGetTxn(tx *memdb.Txn, ws memdb.WatchSet, key string) (uint64,
 	return idx, nil, nil
 }
 
+// called by
+// agent/consul/kvs_endpoint.go/List
 // KVSList is used to list out all keys under a given prefix. If the
 // prefix is left empty, all keys in the KVS will be returned. The returned
 // is the max index of the returned kvs entries or applicable tombstones, or

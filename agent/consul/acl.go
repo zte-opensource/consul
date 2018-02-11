@@ -37,6 +37,8 @@ type aclCacheEntry struct {
 	ETag    string
 }
 
+// used as callback in
+// agent/consul/server.go/NewServerLogger
 // aclLocalFault is used by the authoritative ACL cache to fault in the rules
 // for an ACL if we take a miss. This goes directly to the state store, so it
 // assumes its running in the ACL datacenter, or in a non-ACL datacenter when
@@ -122,11 +124,14 @@ type aclCache struct {
 	fetchMap   map[string][]chan (RemoteACLResult)
 }
 
+// called by
+// agent/consul/server.go/NewServerLogger
 // newACLCache returns a new non-authoritative cache for ACLs. This is used for
 // performance, and is used inside the ACL datacenter on non-leader servers, and
 // outside the ACL datacenter everywhere.
 func newACLCache(conf *Config, logger *log.Logger, rpc rpcFn, local acl.FaultFunc, sentinel sentinel.Evaluator) (*aclCache, error) {
 	var err error
+
 	cache := &aclCache{
 		config:   conf,
 		logger:   logger,
@@ -157,6 +162,8 @@ type RemoteACLResult struct {
 	err    error
 }
 
+// called by
+// agent/consul/acl.go/resolveToken
 // lookupACL is used when we are non-authoritative, and need to resolve an ACL.
 func (c *aclCache) lookupACL(id, authDC string) (acl.ACL, error) {
 	// Check the cache for the ACL.
@@ -313,6 +320,8 @@ func (c *aclCache) lookupACLRemote(id, authDC string, cached *aclCacheEntry) Rem
 	return res
 }
 
+// called by
+// agent/consul/acl.go/lookupACL
 // useACLPolicy handles an ACLPolicy response
 func (c *aclCache) useACLPolicy(id, authDC string, cached *aclCacheEntry, p *structs.ACLPolicy) (acl.ACL, error) {
 	// Check if we can used the cached policy

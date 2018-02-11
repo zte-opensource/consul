@@ -26,6 +26,8 @@ type StatsFetcher struct {
 	inflightLock sync.Mutex
 }
 
+// called by
+// agent/consul/server.go/NewServerLogger
 // NewStatsFetcher returns a stats fetcher.
 func NewStatsFetcher(logger *log.Logger, pool *pool.ConnPool, datacenter string) *StatsFetcher {
 	return &StatsFetcher{
@@ -56,6 +58,8 @@ func (f *StatsFetcher) fetch(server *metadata.Server, replyCh chan *autopilot.Se
 	f.inflightLock.Unlock()
 }
 
+// called by
+// agent/consul/autopilot.go/FetchStats
 // Fetch will attempt to query all the servers in parallel.
 func (f *StatsFetcher) Fetch(ctx context.Context, members []serf.Member) map[string]*autopilot.ServerStats {
 	type workItem struct {

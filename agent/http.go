@@ -42,6 +42,8 @@ func (e BadRequestError) Error() string {
 	return fmt.Sprintf("Bad request: %s", e.Reason)
 }
 
+// created by
+// agent/agent.go/listenHTTP
 // HTTPServer provides an HTTP api for an agent.
 type HTTPServer struct {
 	*http.Server
@@ -80,6 +82,8 @@ var endpoints map[string]unboundEndpoint
 // An empty slice means an endpoint handles OPTIONS requests and MethodNotFound errors itself.
 var allowedMethods map[string][]string
 
+// called by
+// agent/http_oss.go
 // registerEndpoint registers a new endpoint, which should be done at package
 // init() time.
 func registerEndpoint(pattern string, methods []string, fn unboundEndpoint) {
@@ -105,6 +109,8 @@ func (w *wrappedMux) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 	w.handler.ServeHTTP(resp, req)
 }
 
+// called by
+// agent/agent.go/listenHTTP
 // handler is used to attach our handlers to the mux
 func (s *HTTPServer) handler(enableDebug bool) http.Handler {
 	mux := http.NewServeMux()

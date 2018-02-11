@@ -24,7 +24,7 @@ func realMain() int {
 	log.SetOutput(ioutil.Discard)
 
 	args := os.Args[1:]
-	for _, arg := range args {
+	for _, arg := range args { // find -v / --version
 		if arg == "--" {
 			break
 		}
@@ -36,7 +36,9 @@ func realMain() int {
 	}
 
 	ui := &cli.BasicUi{Writer: os.Stdout, ErrorWriter: os.Stderr}
+
 	cmds := command.Map(ui)
+
 	var names []string
 	for c := range cmds {
 		names = append(names, c)

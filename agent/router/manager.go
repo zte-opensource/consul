@@ -74,6 +74,8 @@ type serverList struct {
 	servers []*metadata.Server
 }
 
+// created by
+// agent/router/manager.go/New
 type Manager struct {
 	// listValue manages the atomic load/store of a Manager's serverList
 	listValue atomic.Value
@@ -106,6 +108,9 @@ type Manager struct {
 	offline int32
 }
 
+// called by
+// agent/consul/client_serf.go/nodeJoin
+// agent/router/addServer
 // AddServer takes out an internal write lock and adds a new server.  If the
 // server is not known, appends the server to the list.  The new server will
 // begin seeing use after the rebalance timer fires or enough servers fail
@@ -114,6 +119,7 @@ type Manager struct {
 func (m *Manager) AddServer(s *metadata.Server) {
 	m.listLock.Lock()
 	defer m.listLock.Unlock()
+
 	l := m.getServerList()
 
 	// Check if this server is known
@@ -148,6 +154,9 @@ func (m *Manager) AddServer(s *metadata.Server) {
 	m.saveServerList(l)
 }
 
+// called by
+// agent/router/manager.go/NotifyFailedServer
+// agent/router/manager.go/RebalanceServers
 // cycleServers returns a new list of servers that has dequeued the first
 // server and enqueued it at the end of the list.  cycleServers assumes the
 // caller is holding the listLock.  cycleServer does not test or ping
@@ -204,6 +213,7 @@ func (m *Manager) IsOffline() bool {
 // servers available, return nil.
 func (m *Manager) FindServer() *metadata.Server {
 	l := m.getServerList()
+
 	numServers := len(l.servers)
 	if numServers == 0 {
 		m.logger.Printf("[WARN] manager: No servers available")
@@ -229,6 +239,9 @@ func (m *Manager) saveServerList(l serverList) {
 	m.listValue.Store(l)
 }
 
+// called by
+// agent/consul/client.go/NewClientLogger
+// agent/router/router.go/addServer
 // New is the only way to safely create a new Manager struct.
 func New(logger *log.Logger, shutdownCh chan struct{}, clusterInfo ManagerSerfCluster, connPoolPinger Pinger) (m *Manager) {
 	m = new(Manager)
@@ -245,6 +258,11 @@ func New(logger *log.Logger, shutdownCh chan struct{}, clusterInfo ManagerSerfCl
 	return m
 }
 
+// called by
+// agent/consul/client.go/RPC
+// agent/consul/rpc.go/forwardDC
+// agent/consul/snapshot_endpoint.go/dispatchSnapshotRequest
+// agent/router/router.go/FailServer
 // NotifyFailedServer marks the passed in server as "failed" by rotating it
 // to the end of the server list.
 func (m *Manager) NotifyFailedServer(s *metadata.Server) {
@@ -265,11 +283,14 @@ func (m *Manager) NotifyFailedServer(s *metadata.Server) {
 		// server to the end.
 		m.listLock.Lock()
 		defer m.listLock.Unlock()
+
 		l = m.getServerList()
 
 		if len(l.servers) > 1 && l.servers[0].Name == s.Name {
 			l.servers = l.cycleServer()
+
 			m.saveServerList(l)
+
 			m.logger.Printf(`[DEBUG] manager: cycled away from server "%s"`, s.Name)
 		}
 	}
@@ -282,6 +303,8 @@ func (m *Manager) NumServers() int {
 	return len(l.servers)
 }
 
+// called by
+// agent/router/manager.go/Start
 // RebalanceServers shuffles the list of servers on this metadata.  The server
 // at the front of the list is selected for the next RPC.  RPC calls that
 // fail for a particular server are rotated to the end of the list.  This
@@ -346,6 +369,8 @@ func (m *Manager) RebalanceServers() {
 	return
 }
 
+// called by
+// agent/router/RebalanceServers
 // reconcileServerList returns true when the first server in serverList
 // exists in the receiver's serverList.  If true, the merged serverList is
 // stored as the receiver's serverList.  Returns false if the first server
@@ -374,6 +399,7 @@ func (m *Manager) reconcileServerList(l *serverList) bool {
 		//   'n' == new
 		state byte
 	}
+
 	mergedList := make(map[metadata.Key]*targetServer, len(l.servers))
 	for _, s := range l.servers {
 		mergedList[*s.Key()] = &targetServer{server: s, state: 'o'}
@@ -414,6 +440,9 @@ func (m *Manager) reconcileServerList(l *serverList) bool {
 	return true
 }
 
+// called by
+// agent/consul/client_serf.go/nodeFail
+// agent/router/router.go/RemoveServer
 // RemoveServer takes out an internal write lock and removes a server from
 // the server list.
 func (m *Manager) RemoveServer(s *metadata.Server) {
@@ -460,6 +489,9 @@ func (m *Manager) ResetRebalanceTimer() {
 	m.rebalanceTimer.Reset(clientRPCMinReuseDuration)
 }
 
+// called by
+// agent/consul/client.go/NewClientLogger
+// agent/router/router.go/addServer
 // Start is used to start and manage the task of automatically shuffling and
 // rebalancing the list of Consul servers.  This maintenance only happens
 // periodically based on the expiration of the timer.  Failed servers are

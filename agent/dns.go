@@ -70,6 +70,8 @@ type DNSServer struct {
 	disableCompression atomic.Value
 }
 
+// called by
+// agent/agent.go/listenAndServeDNS
 func NewDNSServer(a *Agent) (*DNSServer, error) {
 	var recursors []string
 	for _, r := range a.config.DNSRecursors {

@@ -527,6 +527,8 @@ func (a *Agent) CheckDeregister(checkID string) error {
 	return nil
 }
 
+// called by
+// command/join/join.go/Run
 // Join is used to instruct the agent to attempt a join to
 // another cluster member
 func (a *Agent) Join(addr string, wan bool) error {

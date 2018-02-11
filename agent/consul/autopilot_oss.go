@@ -4,7 +4,10 @@ package consul
 
 import "github.com/hashicorp/consul/agent/consul/autopilot"
 
+// called by
+// agent/consul/server.go/NewServerLogger
 func (s *Server) initAutopilot(config *Config) {
 	apDelegate := &AutopilotDelegate{s}
+
 	s.autopilot = autopilot.NewAutopilot(s.logger, apDelegate, config.AutopilotInterval, config.ServerHealthInterval)
 }

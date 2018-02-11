@@ -31,6 +31,8 @@ type Flags struct {
 	Args []string
 }
 
+// called by
+// command/agent/agent.go/init
 // AddFlags adds the command line flags for the agent.
 func AddFlags(fs *flag.FlagSet, f *Flags) {
 	add := func(p interface{}, name, help string) {

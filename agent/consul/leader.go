@@ -41,6 +41,8 @@ var (
 	minAutopilotVersion = version.Must(version.NewVersion("0.8.0"))
 )
 
+// called by
+// agent/consul/server.go/NewServerLogger
 // monitorLeadership is used to monitor if we acquire or lose our role
 // as the leader in the Raft cluster. There is some work the leader is
 // expected to do, so we must react to changes
@@ -90,6 +92,8 @@ func (s *Server) monitorLeadership() {
 	}
 }
 
+// called by
+// agent/consul/leader.go/monitorLeadership
 // leaderLoop runs as long as we are the leader to run various
 // maintenance activities
 func (s *Server) leaderLoop(stopCh chan struct{}) {
@@ -183,6 +187,7 @@ WAIT:
 		case <-interval:
 			goto RECONCILE
 		case member := <-reconcileCh:
+		    // written by agent/consul/server_serf.go/localMemberEvent
 			s.reconcileMember(member)
 		case index := <-s.tombstoneGC.ExpireCh():
 			go s.reapTombstones(index)
@@ -192,6 +197,8 @@ WAIT:
 	}
 }
 
+// called by
+// agent/consul/leader.go/leaderLoop
 // establishLeadership is invoked once we become leader and are able
 // to invoke an initial barrier. The barrier is used to ensure any
 // previously inflight transactions have been committed and that our
@@ -258,6 +265,8 @@ func (s *Server) revokeLeadership() error {
 	return nil
 }
 
+// called by
+// agent/consul/leader.go/establishLeadership
 // initializeACL is used to setup the ACLs if we are the leader
 // and need to do this.
 func (s *Server) initializeACL() error {
@@ -650,6 +659,8 @@ func (s *Server) stopCARootPruning() {
 	s.caPruningEnabled = false
 }
 
+// called by
+// agent/consul/segment_oss.go/reconcile
 // reconcileReaped is used to reconcile nodes that have failed and been reaped
 // from Serf but remain in the catalog. This is done by looking for unknown nodes with serfHealth checks registered.
 // We generate a "reap" event to cause the node to be cleaned up.
@@ -724,6 +735,9 @@ func (s *Server) reconcileReaped(known map[string]struct{}) error {
 	return nil
 }
 
+// called by
+// agent/consul/leader.go/leaderLoop
+// agent/consul/segment_oss.go/reconcile
 // reconcileMember is used to do an async reconcile of a single
 // serf member
 func (s *Server) reconcileMember(member serf.Member) error {
@@ -769,6 +783,8 @@ func (s *Server) shouldHandleMember(member serf.Member) bool {
 	return false
 }
 
+// called by
+// agent/consul/leader.go/reconcileMember
 // handleAliveMember is used to ensure the node
 // is registered, with a passing health check.
 func (s *Server) handleAliveMember(member serf.Member) error {
@@ -944,6 +960,8 @@ func (s *Server) handleDeregisterMember(reason string, member serf.Member) error
 	return err
 }
 
+// called by
+// agent/consul/leader.go/handleAliveMember
 // joinConsulServer is used to try to join another consul server
 func (s *Server) joinConsulServer(m serf.Member, parts *metadata.Server) error {
 	// Check for possibility of multiple bootstrap nodes

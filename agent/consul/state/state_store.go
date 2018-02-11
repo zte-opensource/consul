@@ -100,10 +100,14 @@ type sessionCheck struct {
 	Session string
 }
 
+// called by
+// agent/consul/fsm/fsm.go/New
+// agent/consul/fsm/fsm.go/Restore
 // NewStateStore creates a new in-memory state storage layer.
 func NewStateStore(gc *TombstoneGC) (*Store, error) {
 	// Create the in-memory DB.
 	schema := stateStoreSchema()
+
 	db, err := memdb.NewMemDB(schema)
 	if err != nil {
 		return nil, fmt.Errorf("Failed setting up state store: %s", err)
@@ -143,6 +147,8 @@ func (s *Snapshot) Close() {
 	s.tx.Abort()
 }
 
+// called by
+// agent/consul/fsm/fsm.go/Restore
 // Restore is used to efficiently manage restoring a large amount of data into
 // the state store. It works by doing all the restores inside of a single
 // transaction.

@@ -5,6 +5,8 @@ import (
 	"reflect"
 )
 
+// called by
+// agent/config/builder.go/Build
 // Merge recursively combines a set of config file structures into a single structure
 // according to the following rules:
 //

@@ -368,6 +368,9 @@ func (c *Config) CheckProtocolVersion() error {
 	return nil
 }
 
+// called by
+// agent/consul/client.go/NewClientLogger
+// agent/consul/server.go/NewServerLogger
 // CheckACL validates the ACL configuration.
 func (c *Config) CheckACL() error {
 	switch c.ACLDefaultPolicy {
@@ -386,6 +389,10 @@ func (c *Config) CheckACL() error {
 	return nil
 }
 
+// called by
+// agent/agent.go/consulConfig
+// agent/agent.go/segmentConfig
+// agent/config/default.go/DefaultConsulSource
 // DefaultConfig returns a sane default configuration.
 func DefaultConfig() *Config {
 	hostname, err := os.Hostname()
@@ -473,6 +480,9 @@ func DefaultConfig() *Config {
 	return conf
 }
 
+// called by
+// agent/consul/client.go/NewClientLogger
+// agent/consul/server.go/NewServerLogger
 // tlsConfig maps this config into a tlsutil config.
 func (c *Config) tlsConfig() *tlsutil.Config {
 	tlsConf := &tlsutil.Config{

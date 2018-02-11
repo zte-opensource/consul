@@ -56,6 +56,7 @@ func (d *AutopilotDelegate) IsServer(m serf.Member) (*autopilot.ServerInfo, erro
 func (d *AutopilotDelegate) NotifyHealth(health autopilot.OperatorHealthReply) {
 	if d.server.raft.State() == raft.Leader {
 		metrics.SetGauge([]string{"autopilot", "failure_tolerance"}, float32(health.FailureTolerance))
+
 		if health.Healthy {
 			metrics.SetGauge([]string{"autopilot", "healthy"}, 1)
 		} else {
@@ -64,6 +65,8 @@ func (d *AutopilotDelegate) NotifyHealth(health autopilot.OperatorHealthReply) {
 	}
 }
 
+// called by
+// agent/consul/autopilot/promoteServers
 func (d *AutopilotDelegate) PromoteNonVoters(conf *autopilot.Config, health autopilot.OperatorHealthReply) ([]raft.Server, error) {
 	future := d.server.raft.GetConfiguration()
 	if err := future.Error(); err != nil {

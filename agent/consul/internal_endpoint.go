@@ -60,6 +60,8 @@ func (m *Internal) NodeDump(args *structs.DCSpecificRequest,
 		})
 }
 
+// called by
+// agent/user_event.go/UserEvent
 // EventFire is a bit of an odd endpoint, but it allows for a cross-DC RPC
 // call to fire an event. The primary use case is to enable user events being
 // triggered in a remote DC.
@@ -99,6 +101,8 @@ func (m *Internal) EventFire(args *structs.EventFireRequest,
 	return errs
 }
 
+// called by
+// agent/keyring.go/keyringProcess
 // KeyringOperation will query the WAN and LAN gossip keyrings of all nodes.
 func (m *Internal) KeyringOperation(
 	args *structs.KeyringRequest,

@@ -41,6 +41,8 @@ func (t *Txn) preCheck(acl acl.ACL, ops structs.TxnOps) structs.TxnErrors {
 	return errors
 }
 
+// called by
+// agent/txn_endpoint.go/Txn
 // Apply is used to apply multiple operations in a single, atomic transaction.
 func (t *Txn) Apply(args *structs.TxnRequest, reply *structs.TxnResponse) error {
 	if done, err := t.srv.forward("Txn.Apply", args, args, reply); done {

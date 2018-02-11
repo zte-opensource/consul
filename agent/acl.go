@@ -44,6 +44,8 @@ type aclCacheEntry struct {
 	ETag string
 }
 
+// created by
+// agent/acl.go/newACLManager
 // aclManager is used by the agent to keep track of state related to ACLs,
 // including caching tokens from the servers. This has some internal state that
 // we don't want to dump into the agent itself.
@@ -68,6 +70,8 @@ type aclManager struct {
 	disabledLock sync.RWMutex
 }
 
+// called by
+// agent/agent.go/New
 // newACLManager returns an ACL manager based on the given config.
 func newACLManager(config *config.RuntimeConfig) (*aclManager, error) {
 	// Set up the cache from ID to ACL (we don't cache policies like the
@@ -125,6 +129,8 @@ func (m *aclManager) isDisabled() bool {
 	return time.Now().Before(m.disabled)
 }
 
+// called by
+// agent/acl.go/resolveToken
 // lookupACL attempts to locate the compiled policy associated with the given
 // token. The agent may be used to perform RPC calls to the servers to fetch
 // policies that aren't in the cache.

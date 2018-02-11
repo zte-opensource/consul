@@ -40,6 +40,7 @@ func (s *Server) setupSegmentRPC() (map[string]net.Listener, error) {
 	return nil, nil
 }
 
+// enterprise only
 // setupSegments returns an error if any segments are defined since the OSS
 // version of Consul doesn't support them.
 func (s *Server) setupSegments(config *Config, port int, rpcListeners map[string]net.Listener) error {
@@ -54,18 +55,23 @@ func (s *Server) setupSegments(config *Config, port int, rpcListeners map[string
 func (s *Server) floodSegments(config *Config) {
 }
 
+// called by
+// agent/consul/leader.go/leaderLoop
 // reconcile is used to reconcile the differences between Serf membership and
 // what is reflected in our strongly consistent store. Mainly we need to ensure
 // all live nodes are registered, all failed nodes are marked as such, and all
 // left nodes are de-registered.
 func (s *Server) reconcile() (err error) {
 	defer metrics.MeasureSince([]string{"leader", "reconcile"}, time.Now())
+
 	members := s.serfLAN.Members()
+
 	knownMembers := make(map[string]struct{})
 	for _, member := range members {
 		if err := s.reconcileMember(member); err != nil {
 			return err
 		}
+
 		knownMembers[member.Name] = struct{}{}
 	}
 

@@ -28,6 +28,8 @@ const (
 	peerRetryBase = 1 * time.Second
 )
 
+// called by
+// agent/consul/server.go/NewServerLogger
 // setupSerf is used to setup and initialize a Serf
 func (s *Server) setupSerf(conf *serf.Config, ch chan serf.Event, path string, wan bool, wanPort int,
 	segment string, listener net.Listener) (*serf.Serf, error) {
@@ -43,9 +45,9 @@ func (s *Server) setupSerf(conf *serf.Config, ch chan serf.Event, path string, w
 	}
 	conf.Tags["role"] = "consul"
 	conf.Tags["dc"] = s.config.Datacenter
-	conf.Tags["segment"] = segment
+	conf.Tags["segment"] = segment // always be ""
 	if segment == "" {
-		for _, s := range s.config.Segments {
+		for _, s := range s.config.Segments { // enterprise only
 			conf.Tags["sl_"+s.Name] = net.JoinHostPort(s.Advertise, fmt.Sprintf("%d", s.Port))
 		}
 	}
@@ -119,6 +121,8 @@ func rawUserEventName(name string) string {
 	return strings.TrimPrefix(name, userEventPrefix)
 }
 
+// called by
+// agent/consul/server.go/NewServerLogger
 // lanEventHandler is used to handle events from the lan Serf cluster
 func (s *Server) lanEventHandler() {
 	for {
@@ -150,6 +154,8 @@ func (s *Server) lanEventHandler() {
 	}
 }
 
+// called by
+// agent/consul/server_serf.go/lanEventHandler
 // localMemberEvent is used to reconcile Serf events with the strongly
 // consistent store if we are the current leader
 func (s *Server) localMemberEvent(me serf.MemberEvent) {
@@ -167,35 +173,41 @@ func (s *Server) localMemberEvent(me serf.MemberEvent) {
 		if isReap {
 			m.Status = StatusReap
 		}
+
 		select {
+		// will be handled by agent/consul/leader.go/leaderLoop
 		case s.reconcileCh <- m:
 		default:
 		}
 	}
 }
 
+// called by
+// agent/consul/server_serf.go/lanEventHandler
 // localEvent is called when we receive an event on the local Serf
-func (s *Server) localEvent(event serf.UserEvent) {
+func (s *Server) localEvent(event serf.UserEvent) { // better to be user event
 	// Handle only consul events
 	if !strings.HasPrefix(event.Name, "consul:") {
 		return
 	}
 
 	switch name := event.Name; {
-	case name == newLeaderEvent:
+	case name == newLeaderEvent: // "consul:new-leader"
 		s.logger.Printf("[INFO] consul: New leader elected: %s", event.Payload)
 
 		// Trigger the callback
 		if s.config.ServerUp != nil {
-			s.config.ServerUp()
+			s.config.ServerUp() // a.sync.SyncFull.Trigger
 		}
 	case isUserEvent(name):
 		event.Name = rawUserEventName(name)
+
 		s.logger.Printf("[DEBUG] consul: User event: %s", event.Name)
 
 		// Trigger the callback
 		if s.config.UserEventHandler != nil {
-			s.config.UserEventHandler(event)
+		    // set by agent/agent.go/consulConfig
+			s.config.UserEventHandler(event) // agent/user_event.go/handleEvents will receive and handle it
 		}
 	default:
 		if !s.handleEnterpriseUserEvents(event) {
@@ -204,6 +216,8 @@ func (s *Server) localEvent(event serf.UserEvent) {
 	}
 }
 
+// called by
+// agent/consul/server_serf.go/lanEventHandler
 // lanNodeJoin is used to handle join events on the LAN pool.
 func (s *Server) lanNodeJoin(me serf.MemberEvent) {
 	for _, m := range me.Members {
@@ -211,6 +225,7 @@ func (s *Server) lanNodeJoin(me serf.MemberEvent) {
 		if !ok || serverMeta.Segment != "" {
 			continue
 		}
+
 		s.logger.Printf("[INFO] consul: Adding LAN server %s", serverMeta)
 
 		// Update server lookup
@@ -226,6 +241,8 @@ func (s *Server) lanNodeJoin(me serf.MemberEvent) {
 	}
 }
 
+// called by
+// agent/consul/server_serf.go/lanNodeJoin
 // maybeBootstrap is used to handle bootstrapping when a new consul server joins.
 func (s *Server) maybeBootstrap() {
 	// Bootstrap can only be done if there are no committed logs, remove our
@@ -340,6 +357,8 @@ func (s *Server) maybeBootstrap() {
 	s.config.BootstrapExpect = 0
 }
 
+// called by
+// agent/consul/server_serf.go/lanEventHandler
 // lanNodeFailed is used to handle fail events on the LAN pool.
 func (s *Server) lanNodeFailed(me serf.MemberEvent) {
 	for _, m := range me.Members {
@@ -347,6 +366,7 @@ func (s *Server) lanNodeFailed(me serf.MemberEvent) {
 		if !ok || serverMeta.Segment != "" {
 			continue
 		}
+
 		s.logger.Printf("[INFO] consul: Removing LAN server %s", serverMeta)
 
 		// Update id to address map

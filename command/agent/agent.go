@@ -40,7 +40,9 @@ func New(ui cli.Ui, revision, version, versionPre, versionHuman string, shutdown
 		versionHuman:      versionHuman,
 		shutdownCh:        shutdownCh,
 	}
+
 	c.init()
+
 	return c
 }
 
@@ -66,18 +68,26 @@ type cmd struct {
 
 func (c *cmd) init() {
 	c.flags = flag.NewFlagSet("", flag.ContinueOnError)
+
+    // associates FlagSet and agent.config.Flags, so the values will be set after FlagSet.Parse(args)
 	config.AddFlags(c.flags, &c.flagArgs)
+
 	c.help = flags.Usage(help, c.flags)
 }
 
 func (c *cmd) Run(args []string) int {
 	code := c.run(args)
+
 	if c.logger != nil {
 		c.logger.Println("[INFO] agent: Exit code:", code)
 	}
+
 	return code
 }
 
+// called by
+// command/agent/agent.go/handleReload
+// command/agent/agent.go/run
 // readConfig is responsible for setup of our configuration using
 // the command line and any file configs
 func (c *cmd) readConfig() *config.RuntimeConfig {
@@ -86,7 +96,9 @@ func (c *cmd) readConfig() *config.RuntimeConfig {
 		c.UI.Error(err.Error())
 		return nil
 	}
-	cfg, err := b.BuildAndValidate()
+
+	// Builder merges agent/config/default.go/DefaultSource() first
+	cfg, err := b.BuildAndValidate() // return type config.RuntimeConfig
 	if err != nil {
 		c.UI.Error(err.Error())
 		return nil
@@ -139,6 +151,8 @@ func (c *cmd) startupUpdateCheck(config *config.RuntimeConfig) {
 	}()
 }
 
+// called by
+// command/agent/agent.go/run
 // startupJoin is invoked to handle any joins specified to take place at start time
 func (c *cmd) startupJoin(agent *agent.Agent, cfg *config.RuntimeConfig) error {
 	if len(cfg.StartJoinAddrsLAN) == 0 {
@@ -155,6 +169,8 @@ func (c *cmd) startupJoin(agent *agent.Agent, cfg *config.RuntimeConfig) error {
 	return nil
 }
 
+// called by
+// command/agent/agent.go/run
 // startupJoinWan is invoked to handle any joins -wan specified to take place at start time
 func (c *cmd) startupJoinWan(agent *agent.Agent, cfg *config.RuntimeConfig) error {
 	if len(cfg.StartJoinAddrsWAN) == 0 {
@@ -191,10 +207,12 @@ func (c *cmd) run(args []string) int {
 		EnableSyslog:   config.EnableSyslog,
 		SyslogFacility: config.SyslogFacility,
 	}
+
 	logFilter, logGate, logWriter, logOutput, ok := logger.Setup(logConfig, c.UI)
 	if !ok {
 		return 1
 	}
+
 	c.logFilter = logFilter
 	c.logOutput = logOutput
 	c.logger = log.New(logOutput, "", log.LstdFlags)
@@ -207,6 +225,7 @@ func (c *cmd) run(args []string) int {
 
 	// Create the agent
 	c.UI.Output("Starting Consul agent...")
+
 	agent, err := agent.New(config)
 	if err != nil {
 		c.UI.Error(fmt.Sprintf("Error creating agent: %s", err))
@@ -229,11 +248,13 @@ func (c *cmd) run(args []string) int {
 		c.startupUpdateCheck(config)
 	}
 
+	// if -join configured, then join lan serf cluster
 	if err := c.startupJoin(agent, config); err != nil {
 		c.UI.Error(err.Error())
 		return 1
 	}
 
+	// if -join-wan configured, then join serf wan cluster
 	if err := c.startupJoinWan(agent, config); err != nil {
 		c.UI.Error(err.Error())
 		return 1
@@ -263,6 +284,7 @@ func (c *cmd) run(args []string) int {
 	// Enable log streaming
 	c.UI.Info("")
 	c.UI.Output("Log data will now stream in as it occurs:\n")
+
 	logGate.Flush()
 
 	// wait for signal

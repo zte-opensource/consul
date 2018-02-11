@@ -8,6 +8,8 @@ import (
 	"github.com/hashicorp/consul/version"
 )
 
+// called by
+// command/version/version.go/Run
 func DefaultRPCProtocol() (int, error) {
 	src := DefaultSource()
 	c, err := Parse(src.Data, src.Format)
@@ -20,6 +22,9 @@ func DefaultRPCProtocol() (int, error) {
 	return *c.RPCProtocol, nil
 }
 
+// called by
+// agent/config/builder.go/NewBuilder
+// agent/config/default.go/DefaultRPCProtocol
 // DefaultSource is the default agent configuration.
 // This needs to be merged first in the head.
 // todo(fs): The values are sourced from multiple sources.
@@ -247,6 +252,8 @@ func DevConsulSource() Source {
 	}
 }
 
+// called by
+// test code
 func DefaultRuntimeConfig(hcl string) *RuntimeConfig {
 	b, err := NewBuilder(Flags{HCL: []string{hcl}})
 	if err != nil {

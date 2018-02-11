@@ -78,12 +78,15 @@ type Client struct {
 	EnterpriseClient
 }
 
+// not used
 // NewClient is used to construct a new Consul client from the
 // configuration, potentially returning an error
 func NewClient(config *Config) (*Client, error) {
 	return NewClientLogger(config, nil)
 }
 
+// called by
+// agent/agent.go/Start
 func NewClientLogger(config *Config, logger *log.Logger) (*Client, error) {
 	// Check the protocol version
 	if err := config.CheckProtocolVersion(); err != nil {
@@ -150,7 +153,8 @@ func NewClientLogger(config *Config, logger *log.Logger) (*Client, error) {
 	}
 
 	// Start maintenance task for servers
-	c.routers = router.New(c.logger, c.shutdownCh, c.serf, c.connPool)
+	c.routers = router.New(c.logger, c.shutdownCh, c.serf, c.connPool) // *router.Manager
+
 	go c.routers.Start()
 
 	// Start LAN event handlers after the router is complete since the event
@@ -258,6 +262,7 @@ func (c *Client) RPC(method string, args interface{}, reply interface{}) error {
 	firstCheck := time.Now()
 
 TRY:
+    // c.routers is type of *router.Manager, which was set by agent/consul/client.go/NewClientLogger
 	server := c.routers.FindServer()
 	if server == nil {
 		return structs.ErrNoServers
@@ -293,6 +298,7 @@ TRY:
 		case <-c.shutdownCh:
 		}
 	}
+
 	return rpcErr
 }
 

@@ -136,11 +136,13 @@ func (a *Autopilot) promoteServers() error {
 	if err != nil {
 		return fmt.Errorf("error getting server raft protocol versions: %s", err)
 	}
+
 	if minRaftProtocol >= 3 {
 		promotions, err := a.delegate.PromoteNonVoters(conf, a.GetClusterHealth())
 		if err != nil {
 			return fmt.Errorf("error checking for non-voters to promote: %s", err)
 		}
+
 		if err := a.handlePromotions(promotions); err != nil {
 			return fmt.Errorf("error handling promotions: %s", err)
 		}
@@ -263,7 +265,7 @@ func minRaftProtocol(members []serf.Member, serverFunc func(serf.Member) (*Serve
 			continue
 		}
 
-		server, err := serverFunc(m)
+		server, err := serverFunc(m) // (d *AutopilotDelegate) IsServer
 		if err != nil {
 			return -1, err
 		}
@@ -271,7 +273,7 @@ func minRaftProtocol(members []serf.Member, serverFunc func(serf.Member) (*Serve
 			continue
 		}
 
-		vsn, ok := m.Tags["raft_vsn"]
+		vsn, ok := m.Tags["raft_vsn"] // raft version
 		if !ok {
 			vsn = "1"
 		}
@@ -305,6 +307,7 @@ func (a *Autopilot) handlePromotions(promotions []raft.Server) error {
 	// possible we have chosen that as the solution here.
 	for _, server := range promotions {
 		a.logger.Printf("[INFO] autopilot: Promoting %s to voter", fmtServer(server))
+
 		addFuture := a.delegate.Raft().AddVoter(server.ID, server.Address, 0, 0)
 		if err := addFuture.Error(); err != nil {
 			return fmt.Errorf("failed to add raft peer: %v", err)

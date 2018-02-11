@@ -94,7 +94,7 @@ func IsConsulServer(m serf.Member) (bool, *Server) {
 	segmentAddrs := make(map[string]string)
 	segmentPorts := make(map[string]int)
 	for name, value := range m.Tags {
-		if strings.HasPrefix(name, "sl_") {
+		if strings.HasPrefix(name, "sl_") { // enterprise only
 			addr, port, err := net.SplitHostPort(value)
 			if err != nil {
 				return false, nil

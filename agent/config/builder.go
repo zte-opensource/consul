@@ -26,6 +26,8 @@ import (
 	"golang.org/x/time/rate"
 )
 
+// created by
+// agent/config/builder.go/NewBuilder
 // Builder constructs a valid runtime configuration from multiple
 // configuration sources.
 //
@@ -79,6 +81,10 @@ type Builder struct {
 	err error
 }
 
+// called by
+// agent/config/default.go/DefaultRuntimeConfig, which is for test only
+// command/agent/agent.go/readConfig
+// command/validate/validate.go/Run
 // NewBuilder returns a new configuration builder based on the given command
 // line flags.
 func NewBuilder(flags Flags) (*Builder, error) {
@@ -112,6 +118,7 @@ func NewBuilder(flags Flags) (*Builder, error) {
 	// otherwise appended instead of prepended.
 	slices, values := b.splitSlicesAndValues(b.Flags.Config)
 	b.Head = append(b.Head, newSource("flags.slices", slices))
+
 	for _, path := range b.Flags.ConfigFiles {
 		sources, err := b.ReadPath(path)
 		if err != nil {
@@ -119,6 +126,7 @@ func NewBuilder(flags Flags) (*Builder, error) {
 		}
 		b.Sources = append(b.Sources, sources...)
 	}
+
 	b.Tail = append(b.Tail, newSource("flags.values", values))
 	for i, s := range b.Flags.HCL {
 		b.Tail = append(b.Tail, Source{
@@ -210,17 +218,25 @@ func (a byName) Len() int           { return len(a) }
 func (a byName) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
 func (a byName) Less(i, j int) bool { return a[i].Name() < a[j].Name() }
 
+// called by
+// agent/config/default.go/DefaultRuntimeConfig, which is for test only
+// command/agent/agent.go/readConfig
+// command/validate/validate.go/Run
 func (b *Builder) BuildAndValidate() (RuntimeConfig, error) {
 	rt, err := b.Build()
 	if err != nil {
 		return RuntimeConfig{}, err
 	}
+
 	if err := b.Validate(rt); err != nil {
 		return RuntimeConfig{}, err
 	}
+
 	return rt, nil
 }
 
+// called by
+// agent/config/builder.go/BuildAndValidate
 // Build constructs the runtime configuration from the config sources
 // and the command line flags. The config sources are processed in the
 // order they were added with the flags being processed last to give
@@ -259,15 +275,17 @@ func (b *Builder) Build() (rt RuntimeConfig, err error) {
 				continue
 			}
 		}
+
 		if src.Format == "" {
 			return RuntimeConfig{}, fmt.Errorf(`config: Missing or invalid file extension for %q. Please use ".json" or ".hcl".`, src.Name)
 		}
+
 		srcs = append(srcs, src)
 	}
 	srcs = append(srcs, b.Tail...)
 
 	// parse the config sources into a configuration
-	var c Config
+	var c Config // config.Config
 	for _, s := range srcs {
 		if s.Name == "" || s.Data == "" {
 			continue
@@ -358,7 +376,9 @@ func (b *Builder) Build() (rt RuntimeConfig, err error) {
 	// traffic but cannot advertise it as the address on which the
 	// server can be reached.
 
-	bindAddrs := b.expandAddrs("bind_addr", c.BindAddr)
+	// c.BindAddr can either be a ip address or a template like "{{ GetPrivateIP }}", see
+	// https://godoc.org/github.com/hashicorp/go-sockaddr/template
+	bindAddrs := b.expandAddrs("bind_addr", c.BindAddr) // parameter name is for logging only
 	if len(bindAddrs) == 0 {
 		return RuntimeConfig{}, fmt.Errorf("bind_addr cannot be empty")
 	}
@@ -371,6 +391,7 @@ func (b *Builder) Build() (rt RuntimeConfig, err error) {
 	if !isIPAddr(bindAddrs[0]) {
 		return RuntimeConfig{}, fmt.Errorf("bind_addr must be an ip address")
 	}
+
 	if ipaddr.IsAny(b.stringVal(c.AdvertiseAddrLAN)) {
 		return RuntimeConfig{}, fmt.Errorf("Advertise address cannot be 0.0.0.0, :: or [::]")
 	}
@@ -387,7 +408,7 @@ func (b *Builder) Build() (rt RuntimeConfig, err error) {
 		switch {
 		case ipaddr.IsAnyV4(advertiseAddr):
 			addrtyp = "private IPv4"
-			detect = b.GetPrivateIPv4
+			detect = b.GetPrivateIPv4 // func
 			if detect == nil {
 				detect = ipaddr.GetPrivateIPv4
 			}
@@ -410,6 +431,7 @@ func (b *Builder) Build() (rt RuntimeConfig, err error) {
 		if len(advertiseAddrs) > 1 {
 			return RuntimeConfig{}, fmt.Errorf("Multiple %s addresses found. Please configure one with 'bind' and/or 'advertise'.", addrtyp)
 		}
+
 		advertiseAddr = advertiseAddrs[0]
 	}
 

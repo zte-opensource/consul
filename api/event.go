@@ -27,6 +27,9 @@ func (c *Client) Event() *Event {
 	return &Event{c}
 }
 
+// called by
+// command/event/event.go/Run
+// command/exec/exec.go/fireEvent
 // Fire is used to fire a new user event. Only the Name, Payload and Filters
 // are respected. This returns the ID or an associated error. Cross DC requests
 // are supported.

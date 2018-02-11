@@ -16,6 +16,8 @@ const (
 	invalidateRetryBase = 10 * time.Second
 )
 
+// called by
+// agent/consul/leader.go/establishLeadership
 // initializeSessionTimers is used when a leader is newly elected to create
 // a new map to track session expiration and to reset all the timers from
 // the previously known set of timers.

@@ -1,5 +1,6 @@
 package agent
 
+// all endpoints were setup by agent/http.go/handler
 func init() {
 	allowedMethods = make(map[string][]string)
 

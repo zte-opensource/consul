@@ -28,6 +28,8 @@ type Cache struct {
 	sentinel    sentinel.Evaluator
 }
 
+// called by
+// agent/consul/server.go/NewServerLogger
 // NewCache constructs a new policy and ACL cache of a given size
 func NewCache(size int, faultfn FaultFunc, sentinel sentinel.Evaluator) (*Cache, error) {
 	if size <= 0 {

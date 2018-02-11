@@ -527,6 +527,8 @@ func (c *cmd) destroyData() error {
 	return err
 }
 
+// called by
+// command/exec/exec.go/Run
 // fireEvent is used to fire the event that will notify nodes
 // about the remote execution. Returns the event ID or error
 func (c *cmd) fireEvent() (string, error) {

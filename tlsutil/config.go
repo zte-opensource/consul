@@ -121,6 +121,8 @@ func (c *Config) KeyPair() (*tls.Certificate, error) {
 	return &cert, err
 }
 
+// called by
+// tlsutil/config.go/OutgoingTLSWrapper
 // OutgoingTLSConfig generates a TLS configuration for outgoing
 // requests. It will return a nil config if this configuration should
 // not use TLS for outgoing connections.
@@ -187,6 +189,9 @@ func (c *Config) OutgoingTLSConfig() (*tls.Config, error) {
 	return tlsConfig, nil
 }
 
+// called by
+// agent/consul/client.go/NewClientLogger
+// agent/consul/server.go/NewServerLogger
 // OutgoingTLSWrapper returns a a DCWrapper based on the OutgoingTLS
 // configuration. If hostname verification is on, the wrapper
 // will properly generate the dynamic server name for verification.
@@ -221,6 +226,8 @@ func (c *Config) OutgoingTLSWrapper() (DCWrapper, error) {
 	return wrapper, nil
 }
 
+// called by
+// agent/consul/server.go/setupRPC
 // SpecificDC is used to invoke a static datacenter
 // and turns a DCWrapper into a Wrapper type.
 func SpecificDC(dc string, tlsWrap DCWrapper) Wrapper {
@@ -232,6 +239,8 @@ func SpecificDC(dc string, tlsWrap DCWrapper) Wrapper {
 	}
 }
 
+// called by
+// tlsutil/config.go/OutogingTLSWrapper
 // Wrap a net.Conn into a client tls connection, performing any
 // additional verification as needed.
 //
@@ -285,6 +294,9 @@ func WrapTLSClient(conn net.Conn, tlsConfig *tls.Config) (net.Conn, error) {
 	return tlsConn, err
 }
 
+// called by
+// agent/config/runtime.go/IncomingHTTPSConfig
+// agent/consul/server.go/NewServerLogger
 // IncomingTLSConfig generates a TLS configuration for incoming requests
 func (c *Config) IncomingTLSConfig() (*tls.Config, error) {
 	// Create the tlsConfig

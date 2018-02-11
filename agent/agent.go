@@ -64,6 +64,8 @@ const (
 		"service, but no reason was provided. This is a default message."
 )
 
+// created by
+// agent/agent.go/Start
 // delegate defines the interface shared by both
 // consul.Client and consul.Server.
 type delegate interface {
@@ -216,6 +218,8 @@ type Agent struct {
 	proxyLock sync.Mutex
 }
 
+// called by
+// command/agent/agent.go/run
 func New(c *config.RuntimeConfig) (*Agent, error) {
 	if c.Datacenter == "" {
 		return nil, fmt.Errorf("Must configure a Datacenter")
@@ -223,13 +227,14 @@ func New(c *config.RuntimeConfig) (*Agent, error) {
 	if c.DataDir == "" && !c.DevMode {
 		return nil, fmt.Errorf("Must configure a DataDir")
 	}
+
 	acls, err := newACLManager(c)
 	if err != nil {
 		return nil, err
 	}
 
 	a := &Agent{
-		config:          c,
+		config:          c, // *config.RuntimeConfig
 		acls:            acls,
 		checkReapAfter:  make(map[types.CheckID]time.Duration),
 		checkMonitors:   make(map[types.CheckID]*checks.CheckMonitor),
@@ -258,6 +263,8 @@ func New(c *config.RuntimeConfig) (*Agent, error) {
 	return a, nil
 }
 
+// called by
+// agent/agent.go/Start
 func LocalConfig(cfg *config.RuntimeConfig) local.Config {
 	lc := local.Config{
 		AdvertiseAddr:       cfg.AdvertiseAddrLAN.String(),
@@ -276,8 +283,28 @@ func LocalConfig(cfg *config.RuntimeConfig) local.Config {
 	return lc
 }
 
+// a.logger = log.New
+// a.setupNodeID
+// a.State = local.NewState
+// a.sync = ae.NewStateSyncer
+// a.delegate = consul.NewServerLogger or consul.NewClientLogger
+// a.loadServices
+// a.loadChecks
+// a.loadMetadata
+// go a.reapServices
+// go a.handleEvents()
+// go a.sendCoordinate()
+// a.listenAndServeDNS
+// a.listenHTTP
+// a.serveHTTP
+// a.reloadWatches
+// go a.retryJoinLAN()
+// go a.retryJoinWAN()
+
+// called by
+// command/agent/agent.go/run
 func (a *Agent) Start() error {
-	c := a.config
+	c := a.config // *config.RuntimeConfig
 
 	logOutput := a.LogOutput
 	if a.logger == nil {
@@ -309,7 +336,7 @@ func (a *Agent) Start() error {
 
 	// create the state synchronization manager which performs
 	// regular and on-demand state synchronizations (anti-entropy).
-	a.sync = ae.NewStateSyncer(a.State, c.AEInterval, a.shutdownCh, a.logger)
+	a.sync = ae.NewStateSyncer(a.State, c.AEInterval, a.shutdownCh, a.logger) // sync will be started by command/agent/agent.go/run
 
 	// create the cache
 	a.cache = cache.New(nil)
@@ -331,12 +358,14 @@ func (a *Agent) Start() error {
 		if err != nil {
 			return fmt.Errorf("Failed to start Consul server: %v", err)
 		}
+
 		a.delegate = server
 	} else {
 		client, err := consul.NewClientLogger(consulCfg, a.logger)
 		if err != nil {
 			return fmt.Errorf("Failed to start Consul client: %v", err)
 		}
+
 		a.delegate = client
 	}
 
@@ -347,7 +376,9 @@ func (a *Agent) Start() error {
 	// via callbacks. After several attempts this was easier than using
 	// channels since the event notification needs to be non-blocking
 	// and that should be hidden in the state syncer implementation.
-	a.State.Delegate = a.delegate
+	a.State.Delegate = a.delegate // to initiate RPC calls
+	// callback called by agent/local/state.go: LoadMetadata, RemoveCheck,
+	// RemoveService, SetCheckState, SetServiceState, UpdateCheck
 	a.State.TriggerSyncChanges = a.sync.SyncChanges.Trigger
 
 	// Register the cache. We do this much later so the delegate is
@@ -402,7 +433,7 @@ func (a *Agent) Start() error {
 	go a.reapServices()
 
 	// Start handling events.
-	go a.handleEvents()
+	go a.handleEvents() // handle serf user event
 
 	// Start sending network coordinate to the server.
 	if !c.DisableCoordinates {
@@ -431,6 +462,8 @@ func (a *Agent) Start() error {
 		if err := a.serveHTTP(srv); err != nil {
 			return err
 		}
+
+		// for iteration to shutdown
 		a.httpServers = append(a.httpServers, srv)
 	}
 
@@ -446,20 +479,26 @@ func (a *Agent) Start() error {
 	return nil
 }
 
+// called by
+// agent/agent.go/Start
 func (a *Agent) listenAndServeDNS() error {
 	notif := make(chan net.Addr, len(a.config.DNSAddrs))
+
 	for _, addr := range a.config.DNSAddrs {
 		// create server
 		s, err := NewDNSServer(a)
 		if err != nil {
 			return err
 		}
+
 		a.dnsServers = append(a.dnsServers, s)
 
 		// start server
 		a.wgServers.Add(1)
+
 		go func(addr net.Addr) {
 			defer a.wgServers.Done()
+
 			err := s.ListenAndServe(addr.Network(), addr.String(), func() { notif <- addr })
 			if err != nil && !strings.Contains(err.Error(), "accept") {
 				a.logger.Printf("[ERR] agent: Error starting DNS server %s (%s): %v", addr.String(), addr.Network(), err)
@@ -481,6 +520,8 @@ func (a *Agent) listenAndServeDNS() error {
 	return nil
 }
 
+// called by
+// agent/agent.go/Start
 // listenHTTP binds listeners to the provided addresses and also returns
 // pre-configured HTTP servers which are not yet started. The motivation is
 // that in the current startup/shutdown setup we de-couple the listener
@@ -499,6 +540,7 @@ func (a *Agent) listenAndServeDNS() error {
 func (a *Agent) listenHTTP() ([]*HTTPServer, error) {
 	var ln []net.Listener
 	var servers []*HTTPServer
+
 	start := func(proto string, addrs []net.Addr) error {
 		for _, addr := range addrs {
 			var l net.Listener
@@ -564,12 +606,14 @@ func (a *Agent) listenHTTP() ([]*HTTPServer, error) {
 		}
 		return nil, err
 	}
+
 	if err := start("https", a.config.HTTPSAddrs); err != nil {
 		for _, l := range ln {
 			l.Close()
 		}
 		return nil, err
 	}
+
 	return servers, nil
 }
 
@@ -607,6 +651,8 @@ func (a *Agent) listenSocket(path string) (net.Listener, error) {
 	return l, nil
 }
 
+// called by
+// agent/agent.go/Start
 func (a *Agent) serveHTTP(srv *HTTPServer) error {
 	// https://github.com/golang/go/issues/20239
 	//
@@ -659,6 +705,7 @@ func (a *Agent) reloadWatches(cfg *config.RuntimeConfig) error {
 
 	// Compile the watches
 	var watchPlans []*watch.Plan
+
 	for _, params := range cfg.Watches {
 		if handlerType, ok := params["handler_type"]; !ok {
 			params["handler_type"] = "script"
@@ -692,6 +739,7 @@ func (a *Agent) reloadWatches(cfg *config.RuntimeConfig) error {
 		if _, ok := handler.(string); hasHandler && !ok {
 			return fmt.Errorf("Watch handler must be a string")
 		}
+
 		if raw, ok := args.([]interface{}); hasArgs && ok {
 			var parsed []string
 			for _, arg := range raw {
@@ -706,9 +754,11 @@ func (a *Agent) reloadWatches(cfg *config.RuntimeConfig) error {
 		} else if hasArgs && !ok {
 			return fmt.Errorf("Watch args must be a list of strings")
 		}
+
 		if hasHandler && hasArgs || hasHandler && wp.HandlerType == "http" || hasArgs && wp.HandlerType == "http" {
 			return fmt.Errorf("Only one watch handler allowed")
 		}
+
 		if !hasHandler && !hasArgs && wp.HandlerType != "http" {
 			return fmt.Errorf("Must define a watch handler")
 		}
@@ -726,6 +776,7 @@ func (a *Agent) reloadWatches(cfg *config.RuntimeConfig) error {
 		}
 
 		a.watchPlans = append(a.watchPlans, wp)
+
 		go func(wp *watch.Plan) {
 			if h, ok := wp.Exempt["handler"]; ok {
 				wp.Handler = makeWatchHandler(a.LogOutput, h)
@@ -747,9 +798,12 @@ func (a *Agent) reloadWatches(cfg *config.RuntimeConfig) error {
 			}
 		}(wp)
 	}
+
 	return nil
 }
 
+// called by
+// agent/agent.go/Start
 // consulConfig is used to return a consul configuration
 func (a *Agent) consulConfig() (*consul.Config, error) {
 	// Start with the provided config or default config
@@ -973,6 +1027,9 @@ func (a *Agent) consulConfig() (*consul.Config, error) {
 		}
 	}
 
+	// called by
+	// agent/consul/client_serf.go/localEvent
+	// agent/consul/server_serf.go/localEvent
 	// Setup the user event callback
 	base.UserEventHandler = func(e serf.UserEvent) {
 		select {
@@ -993,6 +1050,8 @@ func (a *Agent) consulConfig() (*consul.Config, error) {
 	return base, nil
 }
 
+// called by
+// agent/agent.go/consulConfig
 // Setup the serf and memberlist config for any defined network segments.
 func (a *Agent) segmentConfig() ([]consul.NetworkSegment, error) {
 	var segments []consul.NetworkSegment
@@ -1090,6 +1149,8 @@ func (a *Agent) makeNodeID() (string, error) {
 	return id, nil
 }
 
+// called by
+// agent/agent.go/Start
 // setupNodeID will pull the persisted node ID, if any, or create a random one
 // and persist it.
 func (a *Agent) setupNodeID(config *config.RuntimeConfig) error {
@@ -1212,6 +1273,8 @@ LOAD:
 	return nil
 }
 
+// called by
+// agent/agent.go/consulConfig
 // setupKeyrings is used to initialize and load keyrings during agent startup.
 func (a *Agent) setupKeyrings(config *consul.Config) error {
 	// First set up the LAN and WAN keyrings.
@@ -1240,6 +1303,8 @@ func (a *Agent) setupKeyrings(config *consul.Config) error {
 	return nil
 }
 
+// called by
+// test code only
 // registerEndpoint registers a handler for the consul RPC server
 // under a unique name while making it accessible under the provided
 // name. This allows overwriting handlers for the golang net/rpc
@@ -1260,6 +1325,7 @@ func (a *Agent) registerEndpoint(name string, handler interface{}) error {
 // This allows the agent to implement the Consul.Interface
 func (a *Agent) RPC(method string, args interface{}, reply interface{}) error {
 	a.endpointsLock.RLock()
+
 	// fast path: only translate if there are overrides
 	if len(a.endpoints) > 0 {
 		p := strings.SplitN(method, ".", 2)
@@ -1267,7 +1333,9 @@ func (a *Agent) RPC(method string, args interface{}, reply interface{}) error {
 			method = e + "." + p[1]
 		}
 	}
+
 	a.endpointsLock.RUnlock()
+
 	return a.delegate.RPC(method, args, reply)
 }
 
@@ -1280,11 +1348,17 @@ func (a *Agent) SnapshotRPC(args *structs.SnapshotRequest, in io.Reader, out io.
 	return a.delegate.SnapshotRPC(args, in, out, replyFn)
 }
 
+// called by
+// agent/agent_endpoint.go/AgentLeave
+// command/agent/agent.go/run
 // Leave is used to prepare the agent for a graceful shutdown
 func (a *Agent) Leave() error {
 	return a.delegate.Leave()
 }
 
+// called by
+// agent/agent_endpoint.go/AgentLeave
+// command/agent/agent.go/run
 // ShutdownAgent is used to hard stop the agent. Should be preceded by
 // Leave to do it gracefully. Should be followed by ShutdownEndpoints to
 // terminate the HTTP and DNS servers as well.
@@ -1361,6 +1435,8 @@ func (a *Agent) ShutdownAgent() error {
 	return err
 }
 
+// called by
+// command/agent/agent.go/run
 // ShutdownEndpoints terminates the HTTP and DNS servers. Should be
 // preceded by ShutdownAgent.
 func (a *Agent) ShutdownEndpoints() {
@@ -1389,7 +1465,9 @@ func (a *Agent) ShutdownEndpoints() {
 	a.httpServers = nil
 
 	a.logger.Println("[INFO] agent: Waiting for endpoints to shut down")
+
 	a.wgServers.Wait()
+
 	a.logger.Print("[INFO] agent: Endpoints down")
 }
 
@@ -1411,11 +1489,19 @@ func (a *Agent) ShutdownCh() <-chan struct{} {
 	return a.shutdownCh
 }
 
+// called by
+// agent/agent_endpoint.go/AgentJoin
+// agent/retry_join.go/retryJoinLAN
+// command/agent/agent.go/startupJoin
 // JoinLAN is used to have the agent join a LAN cluster
 func (a *Agent) JoinLAN(addrs []string) (n int, err error) {
 	a.logger.Printf("[INFO] agent: (LAN) joining: %v", addrs)
+
+	// join serf cluster
 	n, err = a.delegate.JoinLAN(addrs)
+
 	a.logger.Printf("[INFO] agent: (LAN) joined: %d Err: %v", n, err)
+
 	if err == nil && a.joinLANNotifier != nil {
 		if notifErr := a.joinLANNotifier.Notify(systemd.Ready); notifErr != nil {
 			a.logger.Printf("[DEBUG] agent: systemd notify failed: %v", notifErr)
@@ -1424,6 +1510,10 @@ func (a *Agent) JoinLAN(addrs []string) (n int, err error) {
 	return
 }
 
+// called by
+// agent/agent_endpoint.go/AgentJoin
+// agent/retry_join.go/retryJoinLAN
+// command/agent/agent.go/startupJoin
 // JoinWAN is used to have the agent join a WAN cluster
 func (a *Agent) JoinWAN(addrs []string) (n int, err error) {
 	a.logger.Printf("[INFO] agent: (WAN) joining: %v", addrs)
@@ -1464,10 +1554,13 @@ func (a *Agent) WANMembers() []serf.Member {
 	return nil
 }
 
+// called by
+// command/agent/agent.go/run
 // StartSync is called once Services and Checks are registered.
 // This is called to prevent a race between clients and the anti-entropy routines
 func (a *Agent) StartSync() {
-	go a.sync.Run()
+	go a.sync.Run() // a.sync was created by agent/agent.go/Start
+
 	a.logger.Printf("[INFO] agent: started state syncer")
 }
 
@@ -1524,6 +1617,7 @@ OUTER:
 					Coord:        coord,
 					WriteRequest: structs.WriteRequest{Token: a.tokens.AgentToken()},
 				}
+
 				var reply struct{}
 				if err := a.RPC("Coordinate.Update", &req, &reply); err != nil {
 					if acl.IsErrPermissionDenied(err) {
@@ -1531,6 +1625,7 @@ OUTER:
 					} else {
 						a.logger.Printf("[ERR] agent: Coordinate update error: %v", err)
 					}
+
 					continue OUTER
 				}
 			}
@@ -1540,9 +1635,12 @@ OUTER:
 	}
 }
 
+// called by
+// agent/agent.go/reapServices
 // reapServicesInternal does a single pass, looking for services to reap.
 func (a *Agent) reapServicesInternal() {
 	reaped := make(map[string]bool)
+
 	for checkID, cs := range a.State.CriticalCheckStates() {
 		serviceID := cs.Check.ServiceID
 
@@ -1567,13 +1665,17 @@ func (a *Agent) reapServicesInternal() {
 		// this is so that we won't try to remove it again.
 		if timeout > 0 && cs.CriticalFor() > timeout {
 			reaped[serviceID] = true
+
 			a.RemoveService(serviceID, true)
+
 			a.logger.Printf("[INFO] agent: Check %q for service %q has been critical for too long; deregistered service",
 				checkID, serviceID)
 		}
 	}
 }
 
+// called by
+// agent/agent.go/Start
 // reapServices is a long running goroutine that looks for checks that have been
 // critical too long and deregisters their associated services.
 func (a *Agent) reapServices() {
@@ -1596,6 +1698,8 @@ type persistedService struct {
 	Service *structs.NodeService
 }
 
+// called by
+// agent/agent.go/AddService
 // persistService saves a service definition to a JSON file in the data dir
 func (a *Agent) persistService(service *structs.NodeService) error {
 	svcPath := filepath.Join(a.config.DataDir, servicesDir, stringHash(service.ID))
@@ -1687,6 +1791,9 @@ func (a *Agent) purgeCheck(checkID types.CheckID) error {
 	return nil
 }
 
+// called by
+// agent/agent.go/loadService
+// agent/agent_endpoint.go/AgentRegisterService
 // AddService is used to add a service entry.
 // This entry is persistent and the agent will make a best effort to
 // ensure it is registered
@@ -1772,6 +1879,7 @@ func (a *Agent) AddService(service *structs.NodeService, chkTypes []*structs.Che
 		if chkType.Status != "" {
 			check.Status = chkType.Status
 		}
+
 		if err := a.AddCheck(check, chkType, persist, token); err != nil {
 			return err
 		}
@@ -1779,6 +1887,10 @@ func (a *Agent) AddService(service *structs.NodeService, chkTypes []*structs.Che
 	return nil
 }
 
+// called by
+// agent/agent.go/reapServicesInternal
+// agent/agent.go/unloadServices
+// agent/agent_endpoint.go/AgentDeregisterService
 // RemoveService is used to remove a service entry.
 // The agent will make a best effort to ensure it is deregistered
 func (a *Agent) RemoveService(serviceID string, persist bool) error {
@@ -2680,16 +2792,21 @@ func (a *Agent) deletePid() error {
 	return nil
 }
 
+// called by
+// agent/agent.go/ReloadConfig
+// agent/agent.go/Start
 // loadServices will load service definitions from configuration and persisted
 // definitions on disk, and load them into the local agent.
 func (a *Agent) loadServices(conf *config.RuntimeConfig) error {
 	// Register the services from config
 	for _, service := range conf.Services {
 		ns := service.NodeService()
+
 		chkTypes, err := service.CheckTypes()
 		if err != nil {
 			return fmt.Errorf("Failed to validate checks for service %q: %v", service.Name, err)
 		}
+
 		if err := a.AddService(ns, chkTypes, false, service.Token); err != nil {
 			return fmt.Errorf("Failed to register service %q: %v", service.Name, err)
 		}
@@ -2704,6 +2821,7 @@ func (a *Agent) loadServices(conf *config.RuntimeConfig) error {
 		}
 		return fmt.Errorf("Failed reading services dir %q: %s", svcDir, err)
 	}
+
 	for _, fi := range files {
 		// Skip all dirs
 		if fi.IsDir() {
@@ -2739,6 +2857,7 @@ func (a *Agent) loadServices(conf *config.RuntimeConfig) error {
 				continue
 			}
 		}
+
 		serviceID := p.Service.ID
 
 		if a.State.Service(serviceID) != nil {
@@ -2746,12 +2865,14 @@ func (a *Agent) loadServices(conf *config.RuntimeConfig) error {
 			// preferred over services persisted from the API.
 			a.logger.Printf("[DEBUG] agent: service %q exists, not restoring from %q",
 				serviceID, file)
+
 			if err := a.purgeService(serviceID); err != nil {
 				return fmt.Errorf("failed purging service %q: %s", serviceID, err)
 			}
 		} else {
 			a.logger.Printf("[DEBUG] agent: restored service definition %q from %q",
 				serviceID, file)
+
 			if err := a.AddService(p.Service, nil, false, p.Token); err != nil {
 				return fmt.Errorf("failed adding service %q: %s", serviceID, err)
 			}
@@ -2761,6 +2882,8 @@ func (a *Agent) loadServices(conf *config.RuntimeConfig) error {
 	return nil
 }
 
+// called by
+// agent/agent.go/ReloadConfig
 // unloadServices will deregister all services.
 func (a *Agent) unloadServices() error {
 	for id := range a.State.Services() {
@@ -2771,6 +2894,9 @@ func (a *Agent) unloadServices() error {
 	return nil
 }
 
+// called by
+// agent/agent.go/ReloadConfig
+// agent/agent.go/Start
 // loadChecks loads check definitions and/or persisted check definitions from
 // disk and re-registers them with the local agent.
 func (a *Agent) loadChecks(conf *config.RuntimeConfig) error {

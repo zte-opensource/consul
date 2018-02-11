@@ -428,11 +428,16 @@ func (c *Config) GenerateEnv() []string {
 	return env
 }
 
+// created by
+// api/api.go/NewClient
 // Client provides a client to the Consul API
 type Client struct {
 	config Config
 }
 
+// called by
+// command/flags/http.go/APIClient
+// watch/plan.go/Run
 // NewClient returns a new client
 func NewClient(config *Config) (*Client, error) {
 	// bootstrap the config
@@ -510,6 +515,8 @@ func NewClient(config *Config) (*Client, error) {
 	return &Client{config: *config}, nil
 }
 
+// called by
+// api/api.go/NewClient
 // NewHttpClient returns an http client configured with the given Transport and TLS
 // config.
 func NewHttpClient(transport *http.Transport, tlsConf TLSConfig) (*http.Client, error) {

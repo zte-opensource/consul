@@ -32,6 +32,9 @@ func FormatFrom(name string) string {
 	}
 }
 
+// called by
+// agent/config/builder.go/Build
+// agent/config/default.go/DefaultRPCProtocol
 // Parse parses a config fragment in either JSON or HCL format.
 func Parse(data string, format string) (c Config, err error) {
 	var raw map[string]interface{}
@@ -126,6 +129,9 @@ func Parse(data string, format string) (c Config, err error) {
 	return
 }
 
+// created by
+// agent/config/builder.go/Build
+// agent/config/merge.go/Merge
 // Config defines the format of a configuration file in either JSON or
 // HCL format.
 //

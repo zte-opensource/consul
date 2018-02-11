@@ -117,6 +117,8 @@ func (r *rexecWriter) Flush() {
 	}
 }
 
+// called by
+// agent/user_event.go/ingestUserEvent
 // handleRemoteExec is invoked when a new remote exec request is received
 func (a *Agent) handleRemoteExec(msg *UserEvent) {
 	a.logger.Printf("[DEBUG] agent: received remote exec event (ID: %s)", msg.ID)

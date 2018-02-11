@@ -181,6 +181,9 @@ RESPOND:
 	return nil
 }
 
+// called by
+// agent/consul/client.go/(c *Client) SnapshotRPC
+// agent/consul/snapshot_endpoint.go/dispatchSnapshotRequest
 // SnapshotRPC is a streaming client function for performing a snapshot RPC
 // request to a remote server. It will create a fresh connection for each
 // request, send the request header, and then stream in any data from the

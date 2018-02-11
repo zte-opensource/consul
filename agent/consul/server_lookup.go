@@ -15,13 +15,18 @@ type ServerLookup struct {
 	idToServer      map[raft.ServerID]*metadata.Server
 }
 
+// called by
+// agent/consul/server.go/NewServerLogger
 func NewServerLookup() *ServerLookup {
+    // raft can use this <id, addr>, <addr, id> map to get rpc conn
 	return &ServerLookup{
 		addressToServer: make(map[raft.ServerAddress]*metadata.Server),
 		idToServer:      make(map[raft.ServerID]*metadata.Server),
 	}
 }
 
+// called by
+// agent/consul/server_serf.go/lanNodeJoin
 func (sl *ServerLookup) AddServer(server *metadata.Server) {
 	sl.lock.Lock()
 	defer sl.lock.Unlock()
@@ -29,6 +34,8 @@ func (sl *ServerLookup) AddServer(server *metadata.Server) {
 	sl.idToServer[raft.ServerID(server.ID)] = server
 }
 
+// called by
+// agent/consul/server_serf.go/lanNodeFailed
 func (sl *ServerLookup) RemoveServer(server *metadata.Server) {
 	sl.lock.Lock()
 	defer sl.lock.Unlock()

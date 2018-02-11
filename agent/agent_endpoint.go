@@ -274,6 +274,8 @@ func (s *HTTPServer) AgentMembers(resp http.ResponseWriter, req *http.Request) (
 	return members, nil
 }
 
+// called by
+// api/agent.go/Join
 func (s *HTTPServer) AgentJoin(resp http.ResponseWriter, req *http.Request) (interface{}, error) {
 	// Fetch the ACL token, if any, and enforce agent policy.
 	var token string

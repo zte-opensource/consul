@@ -16,6 +16,9 @@ import (
 	"golang.org/x/time/rate"
 )
 
+// created by
+// command/agent/agent.go/handleReload
+// command/agent/agent.go/readConfig
 // RuntimeConfig specifies the configuration the consul agent actually
 // uses. Is is derived from one or more Config structures which can come
 // from files, flags and/or environment variables.
@@ -1171,6 +1174,8 @@ type RuntimeConfig struct {
 	Watches []map[string]interface{}
 }
 
+// called by
+// agent/agent.go/listenHTTP
 // IncomingHTTPSConfig returns the TLS configuration for HTTPS
 // connections to consul.
 func (c *RuntimeConfig) IncomingHTTPSConfig() (*tls.Config, error) {

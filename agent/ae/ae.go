@@ -42,6 +42,8 @@ type SyncState interface {
 	SyncFull() error
 }
 
+// called by
+// agent/ae/ae.go/NewStateSyncer
 // StateSyncer manages background synchronization of the given state.
 //
 // The state is synchronized on a regular basis or on demand when either
@@ -107,13 +109,15 @@ const (
 	retryFailIntv = 15 * time.Second
 )
 
+// called by
+// agent/agent.go/Start
 func NewStateSyncer(state SyncState, intv time.Duration, shutdownCh chan struct{}, logger *log.Logger) *StateSyncer {
 	s := &StateSyncer{
-		State:             state,
+		State:             state, // *local.State
 		Interval:          intv,
 		ShutdownCh:        shutdownCh,
 		Logger:            logger,
-		SyncFull:          NewTrigger(),
+		SyncFull:          NewTrigger(), // a struct has a chan embedded in it
 		SyncChanges:       NewTrigger(),
 		serverUpInterval:  serverUpIntv,
 		retryFailInterval: retryFailIntv,
@@ -138,12 +142,15 @@ const (
 	retryFullSyncState fsmState = "retryFullSync"
 )
 
+// called by
+// agent/agent.go/StartSync, which called by command/agent/agent.go/run
 // Run is the long running method to perform state synchronization
 // between local and remote servers.
 func (s *StateSyncer) Run() {
-	if s.ClusterSize == nil {
+	if s.ClusterSize == nil { // this is a anonymous func, i.e., func() int { return len(a.delegate.LANMembers()) }
 		panic("ClusterSize not set")
 	}
+
 	s.runFSM(fullSyncState, s.nextFSMState)
 }
 
@@ -232,7 +239,7 @@ func (s *StateSyncer) retrySyncFullEventFn() event {
 	// trigger a full sync immediately.
 	// this is usually called when a consul server was added to the cluster.
 	// stagger the delay to avoid a thundering herd.
-	case <-s.SyncFull.Notif():
+	case <-s.SyncFull.Notif(): // receive from chan
 		select {
 		case <-time.After(s.stagger(s.serverUpInterval)):
 			return syncFullNotifEvent
@@ -259,7 +266,7 @@ func (s *StateSyncer) syncChangesEventFn() event {
 	// trigger a full sync immediately
 	// this is usually called when a consul server was added to the cluster.
 	// stagger the delay to avoid a thundering herd.
-	case <-s.SyncFull.Notif():
+	case <-s.SyncFull.Notif(): // receive from chan
 		select {
 		case <-time.After(s.stagger(s.serverUpInterval)):
 			return syncFullNotifEvent
@@ -272,7 +279,7 @@ func (s *StateSyncer) syncChangesEventFn() event {
 		return syncFullTimerEvent
 
 	// do partial syncs on demand
-	case <-s.SyncChanges.Notif():
+	case <-s.SyncChanges.Notif(): // receive from chan
 		return syncChangesNotifEvent
 
 	case <-s.ShutdownCh:
@@ -289,6 +296,7 @@ var libRandomStagger = lib.RandomStagger
 // but through s.stagger to allow mocking for testing.
 func (s *StateSyncer) staggerFn(d time.Duration) time.Duration {
 	f := scaleFactor(s.ClusterSize())
+
 	return libRandomStagger(time.Duration(f) * d)
 }
 
@@ -315,6 +323,7 @@ func (s *StateSyncer) Resume() {
 	}
 	trigger := s.paused == 0
 	s.pauseLock.Unlock()
+
 	if trigger {
 		s.SyncChanges.Trigger()
 	}
