@@ -195,7 +195,9 @@ func (c *cmd) run(args []string) int {
 		}
 		return 1
 	}
+
 	c.flagArgs.Args = c.flags.Args()
+
 	config := c.readConfig()
 	if config == nil {
 		return 1
