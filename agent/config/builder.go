@@ -117,6 +117,7 @@ func NewBuilder(flags Flags) (*Builder, error) {
 	// merge the config files since the flag values for slices are
 	// otherwise appended instead of prepended.
 	slices, values := b.splitSlicesAndValues(b.Flags.Config)
+
 	b.Head = append(b.Head, newSource("flags.slices", slices))
 
 	for _, path := range b.Flags.ConfigFiles {
@@ -124,10 +125,12 @@ func NewBuilder(flags Flags) (*Builder, error) {
 		if err != nil {
 			return nil, err
 		}
+
 		b.Sources = append(b.Sources, sources...)
 	}
 
 	b.Tail = append(b.Tail, newSource("flags.values", values))
+
 	for i, s := range b.Flags.HCL {
 		b.Tail = append(b.Tail, Source{
 			Name:   fmt.Sprintf("flags-%d.hcl", i),
@@ -135,10 +138,12 @@ func NewBuilder(flags Flags) (*Builder, error) {
 			Data:   s,
 		})
 	}
+
 	b.Tail = append(b.Tail, NonUserSource(), DefaultConsulSource(), DefaultEnterpriseSource(), DefaultVersionSource())
 	if b.boolVal(b.Flags.DevMode) {
 		b.Tail = append(b.Tail, DevConsulSource())
 	}
+
 	return b, nil
 }
 
@@ -259,6 +264,7 @@ func (b *Builder) Build() (rt RuntimeConfig, err error) {
 	// build the list of config sources
 	var srcs []Source
 	srcs = append(srcs, b.Head...)
+
 	for _, src := range b.Sources {
 		src.Format = FormatFrom(src.Name)
 		if configFormat != "" {
@@ -282,10 +288,12 @@ func (b *Builder) Build() (rt RuntimeConfig, err error) {
 
 		srcs = append(srcs, src)
 	}
+
 	srcs = append(srcs, b.Tail...)
 
 	// parse the config sources into a configuration
 	var c Config // config.Config
+
 	for _, s := range srcs {
 		if s.Name == "" || s.Data == "" {
 			continue
