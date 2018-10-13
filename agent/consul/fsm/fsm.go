@@ -167,7 +167,25 @@ func (c *FSM) Restore(old io.ReadCloser) error {
 
 		// Decode
 		msg := structs.MessageType(msgType[0])
-		if fn := restorers[msg]; fn != nil {
+		if msg == structs.SQLExecuteRequestType {
+			// read size
+			var sz uint64
+			if err := binary.Read(old, binary.LittleEndian, &sz); err != nil {
+				return err
+			}
+
+			// read sqldb
+			dptr := make([]byte, sz)
+			if _, err := io.ReadFull(old, dptr); err != nil {
+				return err
+			}
+
+			// restore
+			sqldb := restore.SQLDB()
+			sqldb.Restore(dptr)
+
+			continue
+		} else if fn := restorers[msg]; fn != nil {
 			if err := fn(&header, restore, dec); err != nil {
 				return err
 			}

@@ -58,6 +58,8 @@ type Store struct {
 	schema *memdb.DBSchema
 	db     *memdb.MemDB
 
+	sqldb  *SQLDB
+
 	// abandonCh is used to signal watchers that this state store has been
 	// abandoned (usually during a restore). This is only ever closed.
 	abandonCh chan struct{}
@@ -109,10 +111,18 @@ func NewStateStore(gc *TombstoneGC) (*Store, error) {
 		return nil, fmt.Errorf("Failed setting up state store: %s", err)
 	}
 
+	sqlstore_config := sqlite_store.NewConfig("", false, nil)
+	sqlstore, err := sqlite_store.NewStore(sqlstore_config)
+	sqldb, err := NEW
+	if err != nil {
+		return nil, fmt.Errorf("Failed setting up sqlite state store: %s", err)
+	}
+
 	// Create and return the state store.
 	s := &Store{
 		schema:       schema,
 		db:           db,
+		SQLStore:     sqlstore,
 		abandonCh:    make(chan struct{}),
 		kvsGraveyard: NewGraveyard(gc),
 		lockDelay:    NewDelay(),

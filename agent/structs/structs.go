@@ -47,6 +47,8 @@ const (
 	ConnectCARequestType                   = 13
 	ConnectCAProviderStateType             = 14
 	ConnectCAConfigType                    = 15 // FSM snapshots only.
+	SQLExecuteRequestType                  = 100
+	SQLQueryRequestType                    = 101
 )
 
 const (

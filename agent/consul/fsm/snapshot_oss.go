@@ -1,6 +1,8 @@
 package fsm
 
 import (
+	"bytes"
+	"encoding/binary"
 	"github.com/hashicorp/consul/agent/consul/autopilot"
 	"github.com/hashicorp/consul/agent/consul/state"
 	"github.com/hashicorp/consul/agent/structs"
@@ -10,6 +12,7 @@ import (
 
 func init() {
 	registerPersister(persistOSS)
+	registerPersister(persistSQLDB)
 
 	registerRestorer(structs.RegisterRequestType, restoreRegistration)
 	registerRestorer(structs.KVSRequestType, restoreKV)
@@ -58,6 +61,9 @@ func persistOSS(s *snapshot, sink raft.SnapshotSink, encoder *codec.Encoder) err
 		return err
 	}
 	if err := s.persistConnectCAConfig(sink, encoder); err != nil {
+		return err
+	}
+	if err := s.persistSQLDB(sink, encoder); err != nil {
 		return err
 	}
 	return nil
@@ -495,4 +501,35 @@ func restoreConnectCAConfig(header *snapshotHeader, restore *state.Restore, deco
 		return err
 	}
 	return nil
+}
+
+func (s *snapshot) persistSQLDB(sink raft.SnapshotSink, encoder *codec.Encoder) error {
+	// backup
+	var dbuf bytes.Buffer
+	sqldb := s.state.SQLDB()
+	if err := sqldb.Backup(dbuf); err != nil {
+		return err
+	}
+	dptr := dbuf.Bytes()
+
+	// write type
+	if _, err := sink.Write([]byte{byte(structs.SQLExecuteRequestType)}); err != nil {
+		return err
+	}
+
+	// write size
+	tbuf := new(bytes.Buffer)
+	sz := uint64(len(dptr))
+	err := binary.Write(tbuf, binary.LittleEndian, sz)
+	if err != nil {
+		return err
+	}
+	if _, err := s.Write(tbuf.Bytes()); err != nil {
+		return err
+	}
+
+	// write sqldb
+	if _, err := sink.Write(dptr); err != nil {
+		return err
+	}
 }

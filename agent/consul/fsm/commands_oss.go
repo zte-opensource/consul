@@ -22,6 +22,7 @@ func init() {
 	registerCommand(structs.AutopilotRequestType, (*FSM).applyAutopilotUpdate)
 	registerCommand(structs.IntentionRequestType, (*FSM).applyIntentionOperation)
 	registerCommand(structs.ConnectCARequestType, (*FSM).applyConnectCAOperation)
+	registerCommand(structs.SQLRequestType, (*FSM).applySQLOperation)
 }
 
 func (c *FSM) applyRegister(buf []byte, index uint64) interface{} {
@@ -329,4 +330,34 @@ func (c *FSM) applyConnectCAOperation(buf []byte, index uint64) interface{} {
 		c.logger.Printf("[WARN] consul.fsm: Invalid CA operation '%s'", req.Op)
 		return fmt.Errorf("Invalid CA operation '%s'", req.Op)
 	}
+}
+
+// applySQLOperation applies the given SQL operation to the state store.
+func (c *FSM) applySQLExecute(buf []byte, index uint64) interface{} {
+	var req structs.SQLExecuteRequest
+	if err := structs.Decode(buf, &req); err != nil {
+		panic(fmt.Errorf("failed to decode request: %v", err))
+	}
+
+	defer metrics.MeasureSinceWithLabels([]string{"consul", "fsm", "ca"}, time.Now(),
+		[]metrics.Label{{Name: "op", Value: string(req.Op)}})
+	defer metrics.MeasureSinceWithLabels([]string{"fsm", "ca"}, time.Now(),
+		[]metrics.Label{{Name: "op", Value: string(req.Op)}})
+
+	return c.state.SQLStore.Execute(req.Queries, req.Atomic)
+}
+
+// applySQLOperation applies the given SQL operation to the state store.
+func (c *FSM) applySQLQuery(buf []byte, index uint64) interface{} {
+	var req structs.SQLQueryRequest
+	if err := structs.Decode(buf, &req); err != nil {
+		panic(fmt.Errorf("failed to decode request: %v", err))
+	}
+
+	defer metrics.MeasureSinceWithLabels([]string{"consul", "fsm", "ca"}, time.Now(),
+		[]metrics.Label{{Name: "op", Value: string(req.Op)}})
+	defer metrics.MeasureSinceWithLabels([]string{"fsm", "ca"}, time.Now(),
+		[]metrics.Label{{Name: "op", Value: string(req.Op)}})
+
+	return c.state.SQLStore.Query(req.Queries, req.Atomic)
 }
