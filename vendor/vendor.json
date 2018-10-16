@@ -227,6 +227,7 @@
 		{"path":"github.com/lib/pq/oid","checksumSHA1":"AU3fA8Sm33Vj9PBoRPSeYfxLRuE=","revision":"90697d60dd844d5ef6ff15135d0203f65d2f53b8","revisionTime":"2018-05-23T17:54:26Z"},
 		{"path":"github.com/lyft/protoc-gen-validate/validate","checksumSHA1":"+03cu5aBuyzbu0O/eArpD+DptPU=","revision":"64fcb82c878efbfe3240e4f164490eefaf6b3c4b","revisionTime":"2018-09-11T18:09:27Z"},
 		{"path":"github.com/mattn/go-isatty","checksumSHA1":"xZuhljnmBysJPta/lMyYmJdujCg=","revision":"66b8e73f3f5cda9f96b69efd03dd3d7fc4a5cdb8","revisionTime":"2016-08-06T12:27:52Z"},
+		{"path":"github.com/mattn/go-sqlite3","checksumSHA1":"98A7ubzXyEPJVD7Mx7CeE8rsci4=","revision":"c67b489f7e8e10b993944d4ecef084df2db3ec8e","revisionTime":"2018-10-15T13:44:34Z"},
 		{"path":"github.com/matttproud/golang_protobuf_extensions/pbutil","checksumSHA1":"bKMZjd2wPw13VwoE7mBeSv5djFA=","revision":"c12348ce28de40eed0136aa2b644d0ee0650e56c","revisionTime":"2016-04-24T11:30:07Z"},
 		{"path":"github.com/miekg/dns","checksumSHA1":"ybBd9oDdeJEZj9YmIKGqaBVqZok=","revision":"e57bf427e68187a27e22adceac868350d7a7079b","revisionTime":"2018-05-16T07:59:02Z","version":"v1.0.7","versionExact":"v1.0.7"},
 		{"path":"github.com/mitchellh/cli","checksumSHA1":"GzfpPGtV2UJH9hFsKwzGjKrhp/A=","revision":"dff723fff508858a44c1f4bd0911f00d73b0202f","revisionTime":"2017-09-05T22:10:09Z"},
