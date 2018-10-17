@@ -1,21 +1,6 @@
 package structs
 
-// Result represents the outcome of an operation that changes rows.
-type SQLResult struct {
-	LastInsertID int64   `json:"last_insert_id,omitempty"`
-	RowsAffected int64   `json:"rows_affected,omitempty"`
-	Error        string  `json:"error,omitempty"`
-	Time         float64 `json:"time,omitempty"`
-}
-
-// Rows represents the outcome of an operation that returns query data.
-type SQLRows struct {
-	Columns []string        `json:"columns,omitempty"`
-	Types   []string        `json:"types,omitempty"`
-	Values  [][]interface{} `json:"values,omitempty"`
-	Error   string          `json:"error,omitempty"`
-	Time    float64         `json:"time,omitempty"`
-}
+import "github.com/hashicorp/consul/agent/consul/state/sqlite"
 
 // QueryRequest represents a query that returns rows, and does not modify
 // the database.
@@ -32,7 +17,7 @@ type SQLQueryRequest struct {
 
 // QueryResponse encapsulates a response to a query.
 type SQLQueryResponse struct {
-	Rows []*SQLRows
+	Rows []*sqlite.Rows
 	Time float64
 	Err error
 }
@@ -51,7 +36,7 @@ type SQLExecuteRequest struct {
 
 // ExecuteResponse encapsulates a response to an execute.
 type SQLExecuteResponse struct {
-	Results []*SQLResult
+	Results []*sqlite.Result
 	Time    float64
 	Err error
 }

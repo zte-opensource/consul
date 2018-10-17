@@ -33,9 +33,6 @@ type SQLDB struct {
 	db      *sqlite.DB                // The underlying SQLite database.
 	dbConn  *sqlite.Conn              // Hidden connection to underlying SQLite database.
 
-	wg   sync.WaitGroup
-	done chan struct{}
-
 	closedMu sync.Mutex
 	closed   bool // Has the store been closed?
 
@@ -114,9 +111,6 @@ func (s *SQLDB) Close(wait bool) error {
 	defer func() {
 		s.closed = true
 	}()
-
-	close(s.done)
-	s.wg.Wait()
 
 	if err := s.dbConn.Close(); err != nil {
 		return err
