@@ -12,7 +12,6 @@ import (
 
 func init() {
 	registerPersister(persistOSS)
-	registerPersister(persistSQLDB)
 
 	registerRestorer(structs.RegisterRequestType, restoreRegistration)
 	registerRestorer(structs.KVSRequestType, restoreKV)
@@ -352,6 +351,38 @@ func (s *snapshot) persistIntentions(sink raft.SnapshotSink,
 	return nil
 }
 
+func (s *snapshot) persistSQLDB(sink raft.SnapshotSink, encoder *codec.Encoder) error {
+	// backup
+	var dbuf bytes.Buffer
+	sqldb := s.state.SQLDB()
+	if err := sqldb.Backup(&dbuf); err != nil {
+		return err
+	}
+	dptr := dbuf.Bytes()
+
+	// write type
+	if _, err := sink.Write([]byte{byte(structs.SQLExecuteRequestType)}); err != nil {
+		return err
+	}
+
+	// write size
+	tbuf := new(bytes.Buffer)
+	sz := uint64(len(dptr))
+	err := binary.Write(tbuf, binary.LittleEndian, sz)
+	if err != nil {
+		return err
+	}
+	if _, err := sink.Write(tbuf.Bytes()); err != nil {
+		return err
+	}
+
+	// write sqldb
+	if _, err := sink.Write(dptr); err != nil {
+		return err
+	}
+	return nil
+}
+
 func restoreRegistration(header *snapshotHeader, restore *state.Restore, decoder *codec.Decoder) error {
 	var req structs.RegisterRequest
 	if err := decoder.Decode(&req); err != nil {
@@ -501,35 +532,4 @@ func restoreConnectCAConfig(header *snapshotHeader, restore *state.Restore, deco
 		return err
 	}
 	return nil
-}
-
-func (s *snapshot) persistSQLDB(sink raft.SnapshotSink, encoder *codec.Encoder) error {
-	// backup
-	var dbuf bytes.Buffer
-	sqldb := s.state.SQLDB()
-	if err := sqldb.Backup(dbuf); err != nil {
-		return err
-	}
-	dptr := dbuf.Bytes()
-
-	// write type
-	if _, err := sink.Write([]byte{byte(structs.SQLExecuteRequestType)}); err != nil {
-		return err
-	}
-
-	// write size
-	tbuf := new(bytes.Buffer)
-	sz := uint64(len(dptr))
-	err := binary.Write(tbuf, binary.LittleEndian, sz)
-	if err != nil {
-		return err
-	}
-	if _, err := s.Write(tbuf.Bytes()); err != nil {
-		return err
-	}
-
-	// write sqldb
-	if _, err := sink.Write(dptr); err != nil {
-		return err
-	}
 }

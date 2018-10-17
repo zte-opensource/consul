@@ -1,7 +1,6 @@
 package consul
 
 import (
-	"github.com/hashicorp/raft"
 	"github.com/hashicorp/consul/agent/structs"
 )
 
@@ -19,13 +18,6 @@ func (s *SQL) Execute(args *structs.SQLExecuteRequest, reply *structs.SQLExecute
 	return s.execute(args, reply)
 }
 
-// ExecuteOrAbort executes the requests, but aborts any active transaction
-// on the underlying database in the case of any error. Any changes are made
-// using the database connection built-in to the Store.
-func (s *SQL) ExecuteOrAbort(args *structs.SQLExecuteRequest, reply *structs.SQLExecuteResponse) error {
-	return s.executeOrAbort(args, reply)
-}
-
 // Query executes queries that return rows, and do not modify the database.
 // The queries are made using the database connection built-in to the Store.
 // Depending on the read consistency requested, it may or may not need to be
@@ -38,15 +30,12 @@ func (s *SQL) Query(args *structs.SQLQueryRequest, reply *structs.SQLQueryRespon
 // is nil then the utility connection is used.
 func (s *SQL) execute(args *structs.SQLExecuteRequest, reply *structs.SQLExecuteResponse) error {
 	// TODO: forward
-	f := s.srv.raftApply(structs.SQLExecuteRequestType, args)
-	if e := f.(raft.Future); e.Error() != nil {
-		if e.Error() == raft.ErrNotLeader {
-			return ErrNotLeader
-		}
-		return e.Error()
+	f, err := s.srv.raftApply(structs.SQLExecuteRequestType, args)
+	if err != nil {
+		return err
 	}
 
-	switch r := f.Response().(type) {
+	switch r := f.(type) {
 	case *structs.SQLExecuteResponse:
 		*reply = *r
 		// TODO
@@ -56,21 +45,19 @@ func (s *SQL) execute(args *structs.SQLExecuteRequest, reply *structs.SQLExecute
 	default:
 		panic("unsupported type")
 	}
+	return nil
 }
 
 // Query executes queries that return rows, and do not modify the database. If
 // connection is nil, then the utility connection is used.
 func (s *SQL) query(args *structs.SQLQueryRequest, reply *structs.SQLQueryResponse) error {
 	// TODO: forward
-	f := s.srv.raftApply(structs.SQLQueryRequestType, args)
-	if e := f.(raft.Future); e.Error() != nil {
-		if e.Error() == raft.ErrNotLeader {
-			return ErrNotLeader
-		}
-		return e.Error()
+	f, err := s.srv.raftApply(structs.SQLQueryRequestType, args)
+	if err != nil {
+		return err
 	}
 
-	switch r := f.Response().(type) {
+	switch r := f.(type) {
 	case *structs.SQLQueryResponse:
 		*reply = *r
 		return r.Err
@@ -79,4 +66,5 @@ func (s *SQL) query(args *structs.SQLQueryRequest, reply *structs.SQLQueryRespon
 	default:
 		panic("unsupported type")
 	}
+	return nil
 }

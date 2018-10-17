@@ -2,26 +2,34 @@ package state
 
 import (
 	"bytes"
-	"encoding/binary"
-	"encoding/json"
 	"errors"
 	"expvar"
-	"fmt"
 	"io"
 	"io/ioutil"
 	"log"
-	"math/rand"
 	"os"
 	"path/filepath"
-	"sort"
 	"sync"
-	"time"
 
+	"github.com/hashicorp/consul/agent/structs"
 	"github.com/hashicorp/consul/agent/consul/state/sqlite"
+)
+
+var (
+	// ErrStoreInvalidState is returned when a Store is in an invalid
+	// state for the requested operation.
+	ErrStoreInvalidState = errors.New("store not in valid state")
 )
 
 const (
 	sqliteFile           = "db.sqlite"
+)
+
+const (
+	numSnaphots        = "num_snapshots"
+	numSnaphotsBlocked = "num_snapshots_blocked"
+	numBackups         = "num_backups"
+	numRestores        = "num_restores"
 )
 
 // SQLDB is a SQLite database, where all changes are made via Raft consensus.
@@ -41,6 +49,9 @@ type SQLDB struct {
 	logger *log.Logger
 }
 
+// stats captures stats for the Store.
+var stats *expvar.Map
+
 // NewStore returns a new Store.
 func NewSQLDB(dir string, dsn string, memory bool, logger *log.Logger) (*SQLDB, error) {
 	if logger == nil {
@@ -49,7 +60,6 @@ func NewSQLDB(dir string, dsn string, memory bool, logger *log.Logger) (*SQLDB, 
 
 	sqldb := &SQLDB{
 		dbPath:         filepath.Join(dir, sqliteFile),
-		done:           make(chan struct{}, 1),
 		logger:         logger,
 	}
 	err := sqldb.Open()
@@ -126,8 +136,8 @@ func (s *SQLDB) Execute(queries []string, atomic bool) interface{} {
 	s.restoreMu.RLock()
 	defer s.restoreMu.RUnlock()
 
-	r, err := s.dbConn.Execute(queries, atomic)
-	return &structs.SQLExecuteResponse{results: r, error: err}
+	r, err := s.dbConn.Execute(queries, atomic, true)
+	return &structs.SQLExecuteResponse{Results: r, Err: err}
 }
 
 // Query applies a Raft log entry to the database.
@@ -135,8 +145,8 @@ func (s *SQLDB) Query(queries []string, atomic bool) interface{} {
 	s.restoreMu.RLock()
 	defer s.restoreMu.RUnlock()
 
-	r, err := s.dbConn.Query(queries, atomic)
-	return &structs.SQLQueryResponse{rows: r, error: err}
+	r, err := s.dbConn.Query(queries, atomic, true)
+	return &structs.SQLQueryResponse{Rows: r, Err: err}
 }
 
 // Restore restores the node to a previous state.
@@ -148,8 +158,8 @@ func (s *SQLDB) Restore(src []byte) error {
 	if err != nil {
 		return err
 	}
-	defer os.Remove(temp.Name())
-	defer temp.Close()
+	defer os.Remove(f.Name())
+	defer f.Close()
 
 	if _, err := f.Write(src); err != nil {
 		return err
@@ -217,4 +227,12 @@ func (s *Snapshot) SQLDB() *SQLDB {
 
 func (r *Restore) SQLDB() *SQLDB {
 	return r.store.sqldb
+}
+
+func (s *Store) Execute(queries []string, atomic bool) interface{} {
+	return s.sqldb.Execute(queries, atomic)
+}
+
+func (s *Store) Query(queries []string, atomic bool) interface{} {
+	return s.sqldb.Query(queries, atomic)
 }
